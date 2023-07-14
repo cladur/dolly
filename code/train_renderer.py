@@ -13,6 +13,8 @@ import wandb
 from renderer.renderer import Renderer
 from renderer.stroke_gen import draw
 
+use_cuda = torch.cuda.is_available()
+
 wandb.init(
     # set the wandb project where this run will be logged
     project="neural-renderer",
@@ -25,12 +27,12 @@ wandb.init(
 
 import torch.optim as optim
 
-criterion = lpips.LPIPS(net='vgg')
+criterion = nn.MSELoss()
+if use_cuda:
+    criterion = criterion.cuda()
 net = Renderer()
 optimizer = optim.Adam(net.parameters(), lr=3e-6)
 batch_size = 64
-
-use_cuda = torch.cuda.is_available()
 step = 0
 
 
@@ -72,14 +74,14 @@ while step < 500000:
     gen = net(train_batch)
     optimizer.zero_grad()
 
-    # Convert gen to (1, 3, 128, 128)
-    loss_gen = torch.zeros((1, 3, 128, 128))
-    loss_ground_truth = torch.zeros((1, 3, 128, 128))
-    for i in range(loss_gen.shape[0]):
-        for j in range(3):
-            loss_gen[i][j] = gen[i]
-            loss_ground_truth[i][j] = ground_truth[i]
-    loss = criterion(loss_gen, loss_ground_truth)
+    # # Convert gen to (1, 3, 128, 128)
+    # loss_gen = torch.zeros((1, 3, 128, 128))
+    # loss_ground_truth = torch.zeros((1, 3, 128, 128))
+    # for i in range(loss_gen.shape[0]):
+    #     for j in range(3):
+    #         loss_gen[i][j] = gen[i]
+    #         loss_ground_truth[i][j] = ground_truth[i]
+    loss = criterion(gen, ground_truth)
     loss.backward()
     optimizer.step()
     print(step, loss.item())
