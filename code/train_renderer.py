@@ -6,8 +6,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-import torchvision
-from torchvision.utils import make_grid
+import lpips
 
 import wandb
 
@@ -26,7 +25,7 @@ wandb.init(
 
 import torch.optim as optim
 
-criterion = nn.MSELoss()
+criterion = lpips.LPIPS(net='vgg')
 net = Renderer()
 optimizer = optim.Adam(net.parameters(), lr=3e-6)
 batch_size = 64
@@ -72,7 +71,15 @@ while step < 500000:
         ground_truth = ground_truth.cuda()
     gen = net(train_batch)
     optimizer.zero_grad()
-    loss = criterion(gen, ground_truth)
+
+    # Convert gen to (1, 3, 128, 128)
+    loss_gen = torch.zeros((1, 3, 128, 128))
+    loss_ground_truth = torch.zeros((1, 3, 128, 128))
+    for i in range(loss_gen.shape[0]):
+        for j in range(3):
+            loss_gen[i][j] = gen[i]
+            loss_ground_truth[i][j] = ground_truth[i]
+    loss = criterion(loss_gen, loss_ground_truth)
     loss.backward()
     optimizer.step()
     print(step, loss.item())
@@ -89,7 +96,6 @@ while step < 500000:
     if step % 100 == 0:
         net.eval()
         gen = net(train_batch)
-        loss = criterion(gen, ground_truth)
         for i in range(32):
             G = gen[i].cpu().data.numpy()
             GT = ground_truth[i].cpu().data.numpy()
