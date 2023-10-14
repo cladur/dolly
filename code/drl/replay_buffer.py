@@ -3,16 +3,16 @@ import random
 from collections import deque
 
 class ReplayBuffer(object):
-    def __init__(self, buffer_size, name_buffer=''):
-        self.buffer_size=buffer_size  #choose buffer size
-        self.num_exp=0
+    def __init__(self, buffer_size):
+        self.buffer_size=buffer_size
         self.buffer=deque()
+        self.num_exp=0
 
-    def add(self, state, action, reward, step, new_state):
+    def append(self, state, action, reward, step, new_state):
         experience=(state, action, reward, step, new_state)
         if self.num_exp < self.buffer_size:
             self.buffer.append(experience)
-            self.num_exp +=1
+            self.num_exp += 1
         else:
             self.buffer.popleft()
             self.buffer.append(experience)
