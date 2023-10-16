@@ -6,8 +6,6 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-import lpips
-
 import wandb
 
 from renderer.renderer import Renderer

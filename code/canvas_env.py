@@ -10,7 +10,6 @@ import torch
 
 from renderer.renderer import Renderer
 
-batch_size = 64
 width = 128
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -19,7 +18,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 Renderer = Renderer()
 Renderer.load_state_dict(torch.load('renderer.pkl'))
 
-def decode(x, canvas): # b * (10 + 3)
+
+def decode(x, canvas):  # b * (10 + 3)
     x = x.view(-1, 10 + 3)
     stroke = 1 - Renderer(x[:, :10])
     stroke = stroke.view(-1, 128, 128, 1)
@@ -32,28 +32,34 @@ def decode(x, canvas): # b * (10 + 3)
         canvas = canvas * (1 - stroke[:, i]) + color_stroke[:, i]
     return canvas
 
+
 aug = transforms.Compose(
-            [transforms.ToPILImage(),
-             transforms.RandomHorizontalFlip(),
-             ])
+    [transforms.ToPILImage(),
+     transforms.RandomHorizontalFlip(),
+     ])
 
 img_train = []
 img_test = []
 train_num = 0
 test_num = 0
 
+
 class CanvasEnv(gym.Env):
-    def __init__(self, width=128, height=128, background_color=(255, 255, 255, 255), max_step=100):
+    def __init__(self, width=128, height=128, background_color=(255, 255, 255, 255), max_step=100, batch_size=64):
         super(CanvasEnv, self).__init__()
 
+        self.batch_size = batch_size
+
         # Define the observation space
-        # Current canvas image, reference image (both grayscale, inside one spaces.Box)
-        self.observation_space = spaces.Box(low=0, high=255, shape=(batch_size, width, width, 7), dtype=np.uint8)
+        # 7 = target, canvas, stepnum 3 + 3 + 1
+        self.observation_space = spaces.Box(low=0, high=255, shape=(
+            self.batch_size, width, width, 7), dtype=np.uint8)
 
         # Define the action space
         # x0, y0, x1, y1, x2, y2, z0, z2, w0, w2
-        self.action_space = spaces.Box(low=-1, high=1, shape=(13,), dtype=np.float32)
-        
+        self.action_space = spaces.Box(
+            low=-1, high=1, shape=(13,), dtype=np.float32)
+
         self.width = width
         self.height = height
         self.background_color = background_color
@@ -65,29 +71,41 @@ class CanvasEnv(gym.Env):
         self.max_step = max_step
         self.last_diff = 0
 
-        self.canvas = torch.zeros([batch_size, 3, width, width], dtype=torch.uint8).to(device)
-        self.gt = torch.zeros([batch_size, 3, width, width], dtype=torch.uint8).to(device)
+        self.canvas = torch.zeros(
+            [self.batch_size, 3, width, width], dtype=torch.uint8).to(device)
+        self.gt = torch.zeros([batch_size, 3, width, width],
+                              dtype=torch.uint8).to(device)
         # self.reference_image = Image.open("reference.png").convert("L")
 
     def load_data(self):
-        # CelebA
+        # MNIST
         global train_num, test_num
-        # for i in range(200000):
-        for i in range(10000):
-            img_id = '%06d' % (i + 1)
-            try:
-                img = cv2.imread('./data/img_align_celeba/' + img_id + '.jpg', cv2.IMREAD_UNCHANGED)
+
+        for i in range(10):
+            # For image in directory
+            for filename in os.listdir('./data/mnist/train/' + str(i) + '/'):
+                img = cv2.imread('./data/mnist/train/' + str(i) +
+                                 '/' + filename, cv2.IMREAD_UNCHANGED)
+                img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
                 img = cv2.resize(img, (width, width))
-                if i > 2000:
-                    train_num += 1
-                    img_train.append(img)
-                else:
-                    test_num += 1
-                    img_test.append(img)
-            finally:
-                if (i + 1) % 10000 == 0:                    
-                    print('loaded {} images'.format(i + 1))
-        print('finish loading data, {} training images, {} testing images'.format(str(train_num), str(test_num)))
+                train_num += 1
+                img_train.append(img)
+
+                # print('loaded ' + str(train_num) + ' train images')
+
+        for i in range(10):
+            # For image in directory
+            for filename in os.listdir('./data/mnist/test/' + str(i) + '/'):
+                img = cv2.imread('./data/mnist/test/' + str(i) +
+                                 '/' + filename, cv2.IMREAD_UNCHANGED)
+                img = cv2.resize(img, (width, width))
+                test_num += 1
+                img_test.append(img)
+
+                # print('loaded ' + str(test_num) + ' test images')
+
+        print('finish loading data, {} training images, {} testing images'.format(
+            str(train_num), str(test_num)))
 
     def pre_data(self, id, test):
         if test:
@@ -101,31 +119,34 @@ class CanvasEnv(gym.Env):
 
     def observation(self):
         ob = []
-        T = torch.ones([batch_size, 1, width, width], dtype=torch.uint8) * self.stepnum
+        T = torch.ones([self.batch_size, 1, width, width],
+                       dtype=torch.uint8) * self.stepnum
         return torch.cat((self.canvas, self.gt, T.to(device)), 1)
 
     def step(self, action):
         self.stepnum += 1
+        action = torch.tensor(action, dtype=torch.float32).to(device)
         self.canvas = (decode(action, self.canvas.float() / 255) * 255).byte()
         ob = self.observation().detach()
-        
+
         done = (self.stepnum == self.max_step)
         reward = self.get_reward()
         info = {}  # Example: Additional information
 
-        return ob, reward, done, info
+        return ob, reward, np.array([done] * self.batch_size), info
 
     def render(self, mode="human"):
         # Render the canvas as an image
         pass
         # cv2.imshow("Canvas", np.array(self.image.convert("RGB")))
         # cv2.waitKey(1)
-    
+
     def close(self):
         cv2.destroyAllWindows()
 
     def get_reward(self):
-        diff = (((self.canvas.float() - self.gt.float()) / 255) ** 2).mean(1).mean(1).mean(1)
+        diff = (((self.canvas.float() - self.gt.float()) / 255)
+                ** 2).mean(1).mean(1).mean(1)
 
         reward = (self.last_diff - diff) / (self.ini_diff + 1e-8)
         self.last_diff = diff
@@ -139,13 +160,14 @@ class CanvasEnv(gym.Env):
         self.last_diff = 0
         self.ini_diff = 0
 
-        self.imgid = [0] * batch_size
+        self.imgid = [0] * self.batch_size
 
         # Generate the current canvas and reference image observations
-        self.canvas = torch.zeros([batch_size, 3, width, width], dtype=torch.uint8).to(device)
-        # self.gt = torch.zeros([batch_size, 3, width, width], dtype=torch.uint8).to(device)
+        self.canvas = torch.zeros(
+            [self.batch_size, 3, width, width], dtype=torch.uint8).to(device)
+        # self.gt = torch.zeros([self.batch_size, 3, width, width], dtype=torch.uint8).to(device)
 
-        for i in range(batch_size):
+        for i in range(self.batch_size):
             if test:
                 id = np.random.randint(test_num)
             else:
@@ -184,7 +206,8 @@ class CanvasEnv(gym.Env):
         gray_brush_image = brush_image.convert("L")
 
         # Change the color of the brush stroke
-        colored_brush_image = ImageOps.colorize(gray_brush_image, black="red", white=color)
+        colored_brush_image = ImageOps.colorize(
+            gray_brush_image, black="red", white=color)
 
         # self.image.paste(colored_brush_image, brush_position, mask=gray_brush_image)
 
