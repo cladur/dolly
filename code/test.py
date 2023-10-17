@@ -62,7 +62,7 @@ img = torch.tensor(img, dtype=torch.float, device=device) / 255.0
 
 os.system('mkdir output')
 
-max_step = 5
+max_step = 1
 imgid = 0
 
 with torch.no_grad():

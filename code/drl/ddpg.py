@@ -69,7 +69,7 @@ class DDPG(object):
         self.actor_optim = Adam(self.actor.parameters(), lr=1e-2)
         self.critic_optim = Adam(self.critic.parameters(), lr=1e-2)
 
-        self.load_model('')
+        # self.load_model('')
 
         # Copy the weights from the actor and critic to the target networks
         for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
