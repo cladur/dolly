@@ -10,18 +10,27 @@ import torch
 
 from renderer.renderer import Renderer
 
+import wandb
+
 width = 128
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-Renderer = Renderer()
-Renderer.load_state_dict(torch.load('renderer.pkl'))
+renderer = Renderer()
+renderer.load_state_dict(torch.load('renderer.pkl'))
+renderer.to(device)
+
+USE_CUDA = torch.cuda.is_available()
+
+
+def to_numpy(var):
+    return var.cpu().data.numpy() if USE_CUDA else var.data.numpy()
 
 
 def decode(x, canvas):  # b * (10 + 3)
     x = x.view(-1, 10 + 3)
-    stroke = 1 - Renderer(x[:, :10])
+    stroke = 1 - renderer(x[:, :10])
     stroke = stroke.view(-1, 128, 128, 1)
     color_stroke = stroke * x[:, -3:].view(-1, 1, 1, 3)
     stroke = stroke.permute(0, 3, 1, 2)
@@ -71,6 +80,8 @@ class CanvasEnv(gym.Env):
         self.max_step = max_step
         self.last_diff = 0
 
+        self.log = 0
+
         self.canvas = torch.zeros(
             [self.batch_size, 3, width, width], dtype=torch.uint8).to(device)
         self.gt = torch.zeros([batch_size, 3, width, width],
@@ -82,6 +93,7 @@ class CanvasEnv(gym.Env):
         global train_num, test_num
 
         for i in range(10):
+            loaded = 0
             # For image in directory
             for filename in os.listdir('./data/mnist/train/' + str(i) + '/'):
                 img = cv2.imread('./data/mnist/train/' + str(i) +
@@ -91,9 +103,14 @@ class CanvasEnv(gym.Env):
                 train_num += 1
                 img_train.append(img)
 
-                # print('loaded ' + str(train_num) + ' train images')
+                print('loaded ' + str(train_num) + ' train images')
+
+                # loaded += 1
+                # if loaded >= 3000:
+                #     break
 
         for i in range(10):
+            loaded = 0
             # For image in directory
             for filename in os.listdir('./data/mnist/test/' + str(i) + '/'):
                 img = cv2.imread('./data/mnist/test/' + str(i) +
@@ -102,7 +119,11 @@ class CanvasEnv(gym.Env):
                 test_num += 1
                 img_test.append(img)
 
-                # print('loaded ' + str(test_num) + ' test images')
+                print('loaded ' + str(test_num) + ' test images')
+
+                # loaded += 1
+                # if loaded >= 500:
+                #     break
 
         print('finish loading data, {} training images, {} testing images'.format(
             str(train_num), str(test_num)))
@@ -133,7 +154,17 @@ class CanvasEnv(gym.Env):
         reward = self.get_reward()
         info = {}  # Example: Additional information
 
+        # if done:
+        #     self.dist = self.get_dist()
+            
+        #     for i in range(self.batch_size):
+        #         wandb.log({"distance": self.dist[i]}, step=self.stepnum)
+        #         self.log += 1
+
         return ob, reward, np.array([done] * self.batch_size), info
+
+    def get_dist(self):
+        return to_numpy((((self.gt.float() - self.canvas.float()) / 255) ** 2).mean(1).mean(1).mean(1))
 
     def render(self, mode="human"):
         # Render the canvas as an image

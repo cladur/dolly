@@ -13,6 +13,8 @@ from canvas_env import CanvasEnv
 
 from renderer.renderer import Renderer
 
+import wandb
+
 Decoder = Renderer()
 Decoder.load_state_dict(torch.load('renderer.pkl'))
 
@@ -67,7 +69,7 @@ class DDPG(object):
         self.actor_optim = Adam(self.actor.parameters(), lr=1e-2)
         self.critic_optim = Adam(self.critic.parameters(), lr=1e-2)
 
-        # TODO: Resume
+        self.load_model('')
 
         # Copy the weights from the actor and critic to the target networks
         for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
@@ -77,6 +79,9 @@ class DDPG(object):
 
         # Create the replay buffer
         self.memory = ReplayBuffer(rmsize * max_step)
+
+        self.current_step = 0
+        self.log = 0
 
         # Hyperparameters
         self.tau = tau
@@ -144,6 +149,10 @@ class DDPG(object):
             return (Q + L2_reward), L2_reward
         else:
             Q = self.critic.forward(merged_state)
+            
+            if self.log % 20 == 0:
+                wandb.log({"expected reward": Q.mean().item()}, step=self.current_step)
+            
             return (Q + L2_reward), L2_reward
 
     def observe(self, reward, state, done):
@@ -171,6 +180,8 @@ class DDPG(object):
         return np.clip(action.astype('float32'), 0, 1)
 
     def update_policy(self, lr):
+        self.log += 1
+
         for param_group in self.critic_optim.param_groups:
             param_group['lr'] = lr[0]
         for param_group in self.actor_optim.param_groups:
@@ -238,3 +249,18 @@ class DDPG(object):
         self.actor_target.to(device)
         self.critic.to(device)
         self.critic_target.to(device)
+
+    def load_model(self, path):
+        if path is None:
+            return
+        self.actor.load_state_dict(torch.load(path + 'actor.pkl'))
+        self.critic.load_state_dict(torch.load(path + 'critic.pkl'))
+
+    def save_model(self, path):
+        self.actor.cpu()
+        self.critic.cpu()
+        torch.save(self.actor.state_dict(), path + 'actor.pkl')
+        torch.save(self.critic.state_dict(), path + 'critic.pkl')
+        self.choose_device()
+        torch.save(self.actor.state_dict(), path + 'actor.pkl')
+        torch.save(self.critic.state_dict(), path + 'critic.pkl')
