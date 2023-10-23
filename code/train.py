@@ -20,11 +20,11 @@ def to_numpy(var):
 def train(agent: DDPG, env: CanvasEnv):
     step = episode = episode_steps = 0
     observation = None
-    noise_factor = 0.1
+    noise_factor = 0.0
     episode_train_times = 10
     validate_interval = 25
     lr = (3e-4, 1e-3)
-    warmup = 5
+    warmup = 400
 
     while step <= train_times:
         print(step, episode, episode_steps)
@@ -56,7 +56,7 @@ def train(agent: DDPG, env: CanvasEnv):
             avg_dist /= done_count
             wandb.log({"distance": avg_dist}, step=step)
 
-        if best_done_index is not None:
+        if step % 50 == 0 and best_done_index is not None:
             G = env.canvas[best_done_index].cpu().data.numpy()
             GT = env.gt[best_done_index].cpu().data.numpy()
 
@@ -79,31 +79,31 @@ def train(agent: DDPG, env: CanvasEnv):
         if episode_steps >= env.max_step:
 
             tot_Q = 0
-            tot_value_loss = 0
+            tot_critic_loss = 0
 
             if step > warmup:
                 if episode > 0 and validate_interval > 0 and episode % validate_interval == 0:
                     agent.save_model('')
 
-                if step < warmup + 500 * max_step:
+                if step < warmup + 2000 * max_step:
                     lr = (3e-4, 1e-3)
-                    noise_factor = 0.1
-                elif step < warmup + 1000 * max_step:
+                    noise_factor = 0.0
+                elif step < warmup + 4000 * max_step:
                     lr = (1e-4, 3e-4)
-                    noise_factor = 0.05
+                    noise_factor = 0.0
                 else:
                     lr = (3e-5, 1e-4)
                     noise_factor = 0.0
                 for i in range(episode_train_times):
                     print('doing update_policy: ', i)
-                    Q, value_loss = agent.update_policy(lr)
+                    Q, critic_loss = agent.update_policy(lr)
                     tot_Q += Q.data.cpu().numpy()
-                    tot_value_loss += value_loss.data.cpu().numpy()
+                    tot_critic_loss += critic_loss.data.cpu().numpy()
 
-                print('Q = ', tot_Q / episode_train_times, ' value_loss = ',
-                      tot_value_loss / episode_train_times, ' step = ', step)
+                print('Q = ', tot_Q / episode_train_times, ' critic_loss = ',
+                      tot_critic_loss / episode_train_times, ' step = ', step)
                 wandb.log({"Q": tot_Q / episode_train_times}, step=step)
-                wandb.log({"value_loss": tot_value_loss /
+                wandb.log({"critic_loss": tot_critic_loss /
                           episode_train_times}, step=step)
 
             observation = None
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = False
     torch.backends.cudnn.benchmark = True
 
-    batch_size = 64
+    batch_size = 96
     max_step = 1
 
     canvas_env = CanvasEnv(max_step=max_step, batch_size=batch_size)
@@ -126,7 +126,7 @@ if __name__ == "__main__":
         max_step=max_step,
         tau=0.001,
         discount=0.75,
-        rmsize=500,
+        rmsize=800,
         writer=None,
         resume=None,
         output_path="./model"

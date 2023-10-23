@@ -50,7 +50,7 @@ class Renderer(nn.Module):
         # 8 x 64 x 64 -> 4 x 64 x 64 -> 1 x 128 x 128
         x = self.pixel_shuffle(self.conv_8_4(x))
 
-        x = torch.tanh(x)
+        x = torch.sigmoid(x)
 
         # 1 x 128 x 128 -> 1 x 128 x 128
         return 1 - x.view(-1, 128, 128)

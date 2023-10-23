@@ -13,7 +13,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 width = 128
 
 T = torch.ones([1, 1, width, width], device=device)
-img = cv2.imread('test.png', cv2.IMREAD_COLOR)
+img = cv2.imread('mateusz.png', cv2.IMREAD_COLOR)
 
 coord = torch.zeros([1, 2, width, width], device=device)
 for i in range(width):

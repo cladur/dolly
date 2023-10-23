@@ -53,7 +53,7 @@ def load_weights():
     net.load_state_dict(model_dict)
 
 
-load_weights()
+# load_weights()
 while step < 500000:
     net.train()
     train_batch = []

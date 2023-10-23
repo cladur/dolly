@@ -156,8 +156,8 @@ class DDPG(object):
             L2_reward: the L2 reward of the action in the given state
         """
         T = state[:, 6:7]
-        gt = state[:, :3].float() / 255
-        canvas0 = state[:, 3:6].float() / 255
+        gt = state[:, 3:6].float() / 255
+        canvas0 = state[:, :3].float() / 255
         canvas1 = decode(action, canvas0)
         L2_reward = ((canvas0 - gt) ** 2).mean(1).mean(1).mean(1) - \
             ((canvas1 - gt) ** 2).mean(1).mean(1).mean(1)

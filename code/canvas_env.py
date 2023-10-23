@@ -105,9 +105,9 @@ class CanvasEnv(gym.Env):
 
                 print('loaded ' + str(train_num) + ' train images')
 
-                loaded += 1
-                if loaded >= 3000:
-                    break
+                # loaded += 1
+                # if loaded >= 3000:
+                #     break
 
         for i in range(10):
             loaded = 0
@@ -121,9 +121,9 @@ class CanvasEnv(gym.Env):
 
                 print('loaded ' + str(test_num) + ' test images')
 
-                loaded += 1
-                if loaded >= 500:
-                    break
+                # loaded += 1
+                # if loaded >= 500:
+                #     break
 
         print('finish loading data, {} training images, {} testing images'.format(
             str(train_num), str(test_num)))
@@ -189,8 +189,7 @@ class CanvasEnv(gym.Env):
         self.test = test
         self.correct_percentage = 0
         self.stepnum = 0
-        self.last_dist = 0
-        self.ini_dist = 0
+        self.last_dist = self.ini_dist = self.get_dist()
 
         self.imgid = [0] * self.batch_size
 

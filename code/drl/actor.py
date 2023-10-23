@@ -116,5 +116,5 @@ class ResNet(nn.Module):
         x = F.avg_pool2d(x, 4)
         x = x.view(x.size(0), -1)
         x = self.fc(x)
-        x = torch.tanh(x)
+        x = torch.sigmoid(x)
         return x
