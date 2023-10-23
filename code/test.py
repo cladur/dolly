@@ -26,6 +26,7 @@ renderer.load_state_dict(torch.load('renderer.pkl'))
 
 canvas = torch.zeros([1, 3, width, width], device=device)
 
+
 def decode(x, canvas):  # b * (10 + 3)
     x = x.view(-1, 10 + 3)
     stroke = 1 - renderer(x[:, :10])
@@ -41,12 +42,14 @@ def decode(x, canvas):  # b * (10 + 3)
         res.append(canvas)
     return canvas, res
 
+
 def save_img(res, imgid):
     output = res.detach().cpu().numpy()
     output = np.transpose(output, (0, 2, 3, 1))
     output = output[0]
     output = (output * 255).astype(np.uint8)
     cv2.imwrite('output/{}.png'.format(imgid), output)
+
 
 actor = ResNet(9, 18, 65)
 actor.load_state_dict(torch.load('actor.pkl'))
@@ -71,7 +74,8 @@ with torch.no_grad():
         stepnum = T * i / max_step
         actions = actor(torch.cat([canvas, img, stepnum, coord], 1))
         canvas, res = decode(actions, canvas)
-        print('canvas step {}, L2Loss = {}'.format(i, ((canvas - img) ** 2).mean()))
+        print('canvas step {}, L2Loss = {}'.format(
+            i, ((canvas - img) ** 2).mean()))
         for j in range(5):
             save_img(res[j], imgid)
             imgid += 1

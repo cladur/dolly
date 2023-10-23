@@ -78,7 +78,7 @@ class CanvasEnv(gym.Env):
 
         self.stepnum = 0
         self.max_step = max_step
-        self.last_diff = 0
+        self.last_dist = 0
 
         self.log = 0
 
@@ -105,9 +105,9 @@ class CanvasEnv(gym.Env):
 
                 print('loaded ' + str(train_num) + ' train images')
 
-                # loaded += 1
-                # if loaded >= 3000:
-                #     break
+                loaded += 1
+                if loaded >= 3000:
+                    break
 
         for i in range(10):
             loaded = 0
@@ -121,9 +121,9 @@ class CanvasEnv(gym.Env):
 
                 print('loaded ' + str(test_num) + ' test images')
 
-                # loaded += 1
-                # if loaded >= 500:
-                #     break
+                loaded += 1
+                if loaded >= 500:
+                    break
 
         print('finish loading data, {} training images, {} testing images'.format(
             str(train_num), str(test_num)))
@@ -136,12 +136,14 @@ class CanvasEnv(gym.Env):
         if not test:
             img = aug(img)
         img = np.asarray(img)
+
         return np.transpose(img, (2, 0, 1))
 
     def observation(self):
         ob = []
         T = torch.ones([self.batch_size, 1, width, width],
                        dtype=torch.uint8) * self.stepnum
+
         return torch.cat((self.canvas, self.gt, T.to(device)), 1)
 
     def step(self, action):
@@ -156,7 +158,7 @@ class CanvasEnv(gym.Env):
 
         # if done:
         #     self.dist = self.get_dist()
-            
+
         #     for i in range(self.batch_size):
         #         wandb.log({"distance": self.dist[i]}, step=self.stepnum)
         #         self.log += 1
@@ -164,7 +166,7 @@ class CanvasEnv(gym.Env):
         return ob, reward, np.array([done] * self.batch_size), info
 
     def get_dist(self):
-        return to_numpy((((self.gt.float() - self.canvas.float()) / 255) ** 2).mean(1).mean(1).mean(1))
+        return (((self.gt.float() - self.canvas.float()) / 255) ** 2).mean(1).mean(1).mean(1)
 
     def render(self, mode="human"):
         # Render the canvas as an image
@@ -176,20 +178,19 @@ class CanvasEnv(gym.Env):
         cv2.destroyAllWindows()
 
     def get_reward(self):
-        diff = (((self.canvas.float() - self.gt.float()) / 255)
-                ** 2).mean(1).mean(1).mean(1)
+        dist = self.get_dist()
 
-        reward = (self.last_diff - diff) / (self.ini_diff + 1e-8)
-        self.last_diff = diff
+        reward = (self.last_dist - dist) / (self.ini_dist + 1e-8)
+        self.last_dist = dist
 
-        return reward.cpu().numpy()
+        return to_numpy(reward)
 
     def reset(self, test=False, seed=None):
         self.test = test
         self.correct_percentage = 0
         self.stepnum = 0
-        self.last_diff = 0
-        self.ini_diff = 0
+        self.last_dist = 0
+        self.ini_dist = 0
 
         self.imgid = [0] * self.batch_size
 

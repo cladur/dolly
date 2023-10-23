@@ -10,6 +10,12 @@ import wandb
 
 train_times = 2000000
 
+USE_CUDA = torch.cuda.is_available()
+
+
+def to_numpy(var):
+    return var.cpu().data.numpy() if USE_CUDA else var.data.numpy()
+
 
 def train(agent: DDPG, env: CanvasEnv):
     step = episode = episode_steps = 0
@@ -18,7 +24,7 @@ def train(agent: DDPG, env: CanvasEnv):
     episode_train_times = 10
     validate_interval = 25
     lr = (3e-4, 1e-3)
-    warmup = 400
+    warmup = 5
 
     while step <= train_times:
         print(step, episode, episode_steps)
@@ -32,11 +38,41 @@ def train(agent: DDPG, env: CanvasEnv):
         action = agent.select_action(observation, noise_factor=noise_factor)
         observation, reward, done, _ = env.step(action)
 
-        if done[0]:
-            dist = env.get_dist()
-            
-            for i in range(env.batch_size):
-                wandb.log({"distance": dist[i]}, step=step)
+        # For done samples in a batch compute the average distance
+        avg_dist = 0
+        done_count = 0
+        best_done_index = None
+        best_dist = 1.0
+        for index, d in enumerate(done):
+            if d:
+                dist = to_numpy(env.get_dist()[index])
+                avg_dist += dist
+                done_count += 1
+                if dist < best_dist:
+                    best_dist = dist
+                    best_done_index = index
+
+        if done_count > 0:
+            avg_dist /= done_count
+            wandb.log({"distance": avg_dist}, step=step)
+
+        if best_done_index is not None:
+            G = env.canvas[best_done_index].cpu().data.numpy()
+            GT = env.gt[best_done_index].cpu().data.numpy()
+
+            G = np.transpose(G, (1, 2, 0))
+            GT = np.transpose(GT, (1, 2, 0))
+
+            cv2.imwrite('www.png', GT)
+
+            image_array = np.concatenate((G, GT), axis=1)
+
+            images = wandb.Image(
+                image_array,
+                caption="Left: Generated, Right: Ground Truth"
+            )
+
+            wandb.log({"image": images}, step=step)
 
         agent.observe(reward, observation, done)
 
@@ -48,7 +84,7 @@ def train(agent: DDPG, env: CanvasEnv):
             if step > warmup:
                 if episode > 0 and validate_interval > 0 and episode % validate_interval == 0:
                     agent.save_model('')
-        
+
                 if step < warmup + 500 * max_step:
                     lr = (3e-4, 1e-3)
                     noise_factor = 0.1
@@ -63,10 +99,12 @@ def train(agent: DDPG, env: CanvasEnv):
                     Q, value_loss = agent.update_policy(lr)
                     tot_Q += Q.data.cpu().numpy()
                     tot_value_loss += value_loss.data.cpu().numpy()
-                
-                print('Q = ', tot_Q / episode_train_times, ' value_loss = ', tot_value_loss / episode_train_times, ' step = ', step)
+
+                print('Q = ', tot_Q / episode_train_times, ' value_loss = ',
+                      tot_value_loss / episode_train_times, ' step = ', step)
                 wandb.log({"Q": tot_Q / episode_train_times}, step=step)
-                wandb.log({"value_loss": tot_value_loss / episode_train_times}, step=step)
+                wandb.log({"value_loss": tot_value_loss /
+                          episode_train_times}, step=step)
 
             observation = None
             episode_steps = 0

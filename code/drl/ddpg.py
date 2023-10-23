@@ -41,16 +41,36 @@ def to_tensor(ndarray, device):
     return torch.tensor(ndarray, dtype=torch.float, device=device)
 
 
-def decode(x, canvas):  # b * (10 + 3)
-    x = x.view(-1, 10 + 3)
-    stroke = 1 - Decoder(x[:, :10])
+def decode(action, canvas):  # b * (10 + 3)
+    # Action        Positions                Width   Opacity
+    # 0-9: stroke - (x0, y0, x1, y1, x2, y2, z0, z2, w0, w2)
+    # 10-12: color
+
+    # Reshape from (batch_size * 13) to (batch_size, 13)
+    action = action.view(-1, 10 + 3)
+    # Decode the stroke into a 128x128 image
+    stroke = 1 - Decoder(action[:, :10])
+
+    # Reshape from (batch_size, 128, 128) to (batch_size, 128, 128, 1)
     stroke = stroke.view(-1, 128, 128, 1)
-    color_stroke = stroke * x[:, -3:].view(-1, 1, 1, 3)
+
+    # Multiply the stroke with the color
+    color_stroke = stroke * action[:, -3:].view(-1, 1, 1, 3)
+
+    # Reshape from (batch_size, 128, 128, 1) to (batch_size, 1, 128, 128)
     stroke = stroke.permute(0, 3, 1, 2)
+
+    # Reshape from (batch_size, 128, 128, 3) to (batch_size, 3, 128, 128)
     color_stroke = color_stroke.permute(0, 3, 1, 2)
+
+    # Reshape from (batch_size, 1, 128, 128) to (batch_size, 5, 1, 128, 128)
     stroke = stroke.view(-1, 5, 1, 128, 128)
+
+    # Reshape from (batch_size, 3, 128, 128) to (batch_size, 5, 3, 128, 128)
     color_stroke = color_stroke.view(-1, 5, 3, 128, 128)
+
     for i in range(5):
+        # At the same time - 'erase' already drawn pixels and add in the new stroke
         canvas = canvas * (1 - stroke[:, i]) + color_stroke[:, i]
     return canvas
 
@@ -149,10 +169,11 @@ class DDPG(object):
             return (Q + L2_reward), L2_reward
         else:
             Q = self.critic.forward(merged_state)
-            
+
             if self.log % 20 == 0:
-                wandb.log({"expected reward": Q.mean().item()}, step=self.current_step)
-            
+                wandb.log({"expected reward": Q.mean().item()},
+                          step=self.current_step)
+
             return (Q + L2_reward), L2_reward
 
     def observe(self, reward, state, done):
