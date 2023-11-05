@@ -52,7 +52,7 @@ def save_img(res, imgid):
 
 
 actor = ResNet(9, 18, 65)
-actor.load_state_dict(torch.load('actor.pkl'))
+actor.load_state_dict(torch.load('actor.pkl', map_location=device))
 actor = actor.to(device).eval()
 renderer = renderer.to(device).eval()
 
