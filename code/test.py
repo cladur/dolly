@@ -13,7 +13,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 width = 128
 
 T = torch.ones([1, 1, width, width], device=device)
-img = cv2.imread('mateusz.png', cv2.IMREAD_COLOR)
+img = cv2.imread('200.png', cv2.IMREAD_UNCHANGED)
 
 coord = torch.zeros([1, 2, width, width], device=device)
 for i in range(width):
@@ -24,17 +24,38 @@ for i in range(width):
 renderer = Renderer()
 renderer.load_state_dict(torch.load('renderer.pkl'))
 
-canvas = torch.zeros([1, 3, width, width], device=device)
+canvas = torch.zeros([1, 4, width, width], device=device)
 
 
-def decode(x, canvas):  # b * (10 + 3)
-    x = x.view(-1, 10 + 3)
-    stroke = 1 - renderer(x[:, :10])
+def decode(action, canvas):  # b * (10 + 3)
+ # Action        Positions                Width   Opacity
+    # 0-9: stroke - (x0, y0, x1, y1, x2, y2, z0, z2, w0, w2)
+    # 10-12: color
+
+    # Reshape from (batch_size * 13) to (batch_size, 13)
+    action = action.view(-1, 10 + 3)
+    # Decode the stroke into a 128x128 image
+    stroke = 1 - renderer(action[:, :10])
+
+    # Reshape from (batch_size, 128, 128) to (batch_size, 128, 128, 1)
     stroke = stroke.view(-1, 128, 128, 1)
-    color_stroke = stroke * x[:, -3:].view(-1, 1, 1, 3)
+
+    # Multiply the stroke with the color
+    color_stroke = stroke * action[:, -3:].view(-1, 1, 1, 3)
+
+    # Add alpha channel to the color_stroke
+    color_stroke = torch.cat((color_stroke, stroke), 3)
+
+    # Reshape from (batch_size, 128, 128, 1) to (batch_size, 1, 128, 128)
     stroke = stroke.permute(0, 3, 1, 2)
+
+    # Reshape from (batch_size, 128, 128, 4) to (batch_size, 4, 128, 128)
     color_stroke = color_stroke.permute(0, 3, 1, 2)
+
+    # Reshape from (batch_size, 1, 128, 128) to (batch_size, 5, 1, 128, 128)
     stroke = stroke.view(-1, 5, 1, 128, 128)
+
+    # Reshape from (batch_size, 4, 128, 128) to (batch_size, 5, 4, 128, 128)
     color_stroke = color_stroke.view(-1, 5, 4, 128, 128)
     res = []
     for i in range(5):
@@ -51,13 +72,13 @@ def save_img(res, imgid):
     cv2.imwrite('output/{}.png'.format(imgid), output)
 
 
-actor = ResNet(9, 18, 65)
+actor = ResNet(11, 18, 65)
 actor.load_state_dict(torch.load('actor.pkl', map_location=device))
 actor = actor.to(device).eval()
 renderer = renderer.to(device).eval()
 
 img = cv2.resize(img, (width, width))
-img = img.reshape(1, width, width, 3)
+img = img.reshape(1, width, width, 4)
 # img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 print(img.shape)
 img = np.transpose(img, (0, 3, 1, 2))

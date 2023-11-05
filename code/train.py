@@ -24,7 +24,7 @@ def train(agent: DDPG, env: CanvasEnv):
     episode_train_times = 10
     validate_interval = 25
     lr = (3e-4, 1e-3)
-    warmup = 400
+    warmup = 50
 
     while step <= train_times:
         print(step, episode, episode_steps)

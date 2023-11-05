@@ -128,8 +128,8 @@ class DDPG(object):
         gt = state[:, 4:8].float() / 255
         canvas0 = state[:, :4].float() / 255
         canvas1 = decode(action, canvas0)
-        L2_reward = ((canvas0 - gt) ** 2).mean(1).mean(1).mean(1).mean(1) - \
-            ((canvas1 - gt) ** 2).mean(1).mean(1).mean(1).mean(1)
+        L2_reward = ((canvas0 - gt) ** 2).mean(1).mean(1).mean(1) - \
+            ((canvas1 - gt) ** 2).mean(1).mean(1).mean(1)
         coord_ = coord.expand(state.shape[0], 2, 128, 128)
         merged_state = torch.cat(
             [canvas0, canvas1, gt, (T+1).float()/self.max_step, coord_], 1)
