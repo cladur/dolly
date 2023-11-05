@@ -28,16 +28,39 @@ def to_numpy(var):
     return var.cpu().data.numpy() if USE_CUDA else var.data.numpy()
 
 
-def decode(x, canvas):  # b * (10 + 3)
-    x = x.view(-1, 10 + 3)
-    stroke = 1 - renderer(x[:, :10])
+def decode(action, canvas):  # b * (10 + 3)
+    # Action        Positions                Width   Opacity
+    # 0-9: stroke - (x0, y0, x1, y1, x2, y2, z0, z2, w0, w2)
+    # 10-12: color
+
+    # Reshape from (batch_size * 13) to (batch_size, 13)
+    action = action.view(-1, 10 + 3)
+    # Decode the stroke into a 128x128 image
+    stroke = 1 - renderer(action[:, :10])
+
+    # Reshape from (batch_size, 128, 128) to (batch_size, 128, 128, 1)
     stroke = stroke.view(-1, 128, 128, 1)
-    color_stroke = stroke * x[:, -3:].view(-1, 1, 1, 3)
+
+    # Multiply the stroke with the color
+    color_stroke = stroke * action[:, -3:].view(-1, 1, 1, 3)
+
+    # Add alpha channel to the color_stroke
+    color_stroke = torch.cat((color_stroke, stroke), 3)
+
+    # Reshape from (batch_size, 128, 128, 1) to (batch_size, 1, 128, 128)
     stroke = stroke.permute(0, 3, 1, 2)
+
+    # Reshape from (batch_size, 128, 128, 4) to (batch_size, 4, 128, 128)
     color_stroke = color_stroke.permute(0, 3, 1, 2)
+
+    # Reshape from (batch_size, 1, 128, 128) to (batch_size, 5, 1, 128, 128)
     stroke = stroke.view(-1, 5, 1, 128, 128)
-    color_stroke = color_stroke.view(-1, 5, 3, 128, 128)
+
+    # Reshape from (batch_size, 4, 128, 128) to (batch_size, 5, 4, 128, 128)
+    color_stroke = color_stroke.view(-1, 5, 4, 128, 128)
+
     for i in range(5):
+        # At the same time - 'erase' already drawn pixels and add in the new stroke
         canvas = canvas * (1 - stroke[:, i]) + color_stroke[:, i]
     return canvas
 
@@ -54,26 +77,23 @@ test_num = 0
 
 
 class CanvasEnv(gym.Env):
-    def __init__(self, width=128, height=128, background_color=(255, 255, 255, 255), max_step=100, batch_size=64):
+    def __init__(self, width=128, height=128, max_step=100, batch_size=64):
         super(CanvasEnv, self).__init__()
 
         self.batch_size = batch_size
 
         # Define the observation space
-        # 7 = target, canvas, stepnum 3 + 3 + 1
+        # 11 = target, canvas, stepnum, coord 4 + 4 + 1 + 2
         self.observation_space = spaces.Box(low=0, high=255, shape=(
-            self.batch_size, width, width, 7), dtype=np.uint8)
+            self.batch_size, width, width, 11), dtype=np.uint8)
 
         # Define the action space
-        # x0, y0, x1, y1, x2, y2, z0, z2, w0, w2
+        # x0, y0, x1, y1, x2, y2, z0, z2, w0, w2, r, g, b
         self.action_space = spaces.Box(
             low=-1, high=1, shape=(13,), dtype=np.float32)
 
         self.width = width
         self.height = height
-        self.background_color = background_color
-        # self.image = Image.new("RGBA", (width, height), background_color)
-        # self.draw = ImageDraw.Draw(self.image)
         self.correct_percentage = 0
 
         self.stepnum = 0
@@ -83,10 +103,9 @@ class CanvasEnv(gym.Env):
         self.log = 0
 
         self.canvas = torch.zeros(
-            [self.batch_size, 3, width, width], dtype=torch.uint8).to(device)
-        self.gt = torch.zeros([batch_size, 3, width, width],
+            [self.batch_size, 4, width, width], dtype=torch.uint8).to(device)
+        self.gt = torch.zeros([batch_size, 4, width, width],
                               dtype=torch.uint8).to(device)
-        # self.reference_image = Image.open("reference.png").convert("L")
 
     def load_data(self):
         # MNIST
@@ -95,25 +114,24 @@ class CanvasEnv(gym.Env):
         for i in range(10):
             loaded = 0
             # For image in directory
-            for filename in os.listdir('./data/mnist/train/' + str(i) + '/'):
-                img = cv2.imread('./data/mnist/train/' + str(i) +
+            for filename in os.listdir('./data/mnist_transformed/train/' + str(i) + '/'):
+                img = cv2.imread('./data/mnist_transformed/train/' + str(i) +
                                  '/' + filename, cv2.IMREAD_UNCHANGED)
-                img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
                 img = cv2.resize(img, (width, width))
                 train_num += 1
                 img_train.append(img)
 
                 print('loaded ' + str(train_num) + ' train images')
 
-                # loaded += 1
-                # if loaded >= 3000:
-                #     break
+                loaded += 1
+                if loaded >= 1000:
+                    break
 
         for i in range(10):
             loaded = 0
             # For image in directory
-            for filename in os.listdir('./data/mnist/test/' + str(i) + '/'):
-                img = cv2.imread('./data/mnist/test/' + str(i) +
+            for filename in os.listdir('./data/mnist_transformed/test/' + str(i) + '/'):
+                img = cv2.imread('./data/mnist_transformed/test/' + str(i) +
                                  '/' + filename, cv2.IMREAD_UNCHANGED)
                 img = cv2.resize(img, (width, width))
                 test_num += 1
@@ -121,9 +139,9 @@ class CanvasEnv(gym.Env):
 
                 print('loaded ' + str(test_num) + ' test images')
 
-                # loaded += 1
-                # if loaded >= 500:
-                #     break
+                loaded += 1
+                if loaded >= 100:
+                    break
 
         print('finish loading data, {} training images, {} testing images'.format(
             str(train_num), str(test_num)))
@@ -168,12 +186,6 @@ class CanvasEnv(gym.Env):
     def get_dist(self):
         return (((self.gt.float() - self.canvas.float()) / 255) ** 2).mean(1).mean(1).mean(1)
 
-    def render(self, mode="human"):
-        # Render the canvas as an image
-        pass
-        # cv2.imshow("Canvas", np.array(self.image.convert("RGB")))
-        # cv2.waitKey(1)
-
     def close(self):
         cv2.destroyAllWindows()
 
@@ -195,7 +207,7 @@ class CanvasEnv(gym.Env):
 
         # Generate the current canvas and reference image observations
         self.canvas = torch.zeros(
-            [self.batch_size, 3, width, width], dtype=torch.uint8).to(device)
+            [self.batch_size, 4, width, width], dtype=torch.uint8).to(device)
         # self.gt = torch.zeros([self.batch_size, 3, width, width], dtype=torch.uint8).to(device)
 
         for i in range(self.batch_size):
@@ -207,40 +219,6 @@ class CanvasEnv(gym.Env):
             self.gt[i] = torch.tensor(self.pre_data(id, test))
 
         return self.observation()
-
-    def draw_brush(self, x, y, size, color, brush_index, rotation):
-        brush_filename = f"brushes/brush{brush_index}.png"
-        brush_image = Image.open(brush_filename).convert("RGBA")
-
-        # map position from [-1, 1] to [0, width/height]
-        x = (x + 1) * self.width / 2
-        y = (y + 1) * self.height / 2
-
-        # map size from [-1, 1] to [min_size, max_size]
-        min_size = 10
-        max_size = 110
-        size = (size + 1) * (max_size - min_size) / 2 + min_size
-
-        # map rotation from [-1, 1] to [-180, 180]
-        rotation = rotation * 180
-
-        size = int(size)
-        x = int(x)
-        y = int(y)
-
-        brush_image = brush_image.resize((size, size), Image.NEAREST)
-        brush_image = brush_image.rotate(rotation, expand=True)
-
-        brush_position = (x - size // 2, y - size // 2)
-
-        # Convert brush image to grayscale
-        gray_brush_image = brush_image.convert("L")
-
-        # Change the color of the brush stroke
-        colored_brush_image = ImageOps.colorize(
-            gray_brush_image, black="red", white=color)
-
-        # self.image.paste(colored_brush_image, brush_position, mask=gray_brush_image)
 
     def save_canvas(self, filename):
         pass

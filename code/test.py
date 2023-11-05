@@ -35,7 +35,7 @@ def decode(x, canvas):  # b * (10 + 3)
     stroke = stroke.permute(0, 3, 1, 2)
     color_stroke = color_stroke.permute(0, 3, 1, 2)
     stroke = stroke.view(-1, 5, 1, 128, 128)
-    color_stroke = color_stroke.view(-1, 5, 3, 128, 128)
+    color_stroke = color_stroke.view(-1, 5, 4, 128, 128)
     res = []
     for i in range(5):
         canvas = canvas * (1 - stroke[:, i]) + color_stroke[:, i]

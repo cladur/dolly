@@ -9,7 +9,7 @@ from drl.actor import ResNet
 from drl.critic import ResNet_wobn
 from drl.replay_buffer import ReplayBuffer
 from drl.noise import OrnsteinUhlenbeckActionNoise
-from canvas_env import CanvasEnv
+from canvas_env import CanvasEnv, decode
 
 from renderer.renderer import Renderer
 
@@ -41,50 +41,19 @@ def to_tensor(ndarray, device):
     return torch.tensor(ndarray, dtype=torch.float, device=device)
 
 
-def decode(action, canvas):  # b * (10 + 3)
-    # Action        Positions                Width   Opacity
-    # 0-9: stroke - (x0, y0, x1, y1, x2, y2, z0, z2, w0, w2)
-    # 10-12: color
-
-    # Reshape from (batch_size * 13) to (batch_size, 13)
-    action = action.view(-1, 10 + 3)
-    # Decode the stroke into a 128x128 image
-    stroke = 1 - Decoder(action[:, :10])
-
-    # Reshape from (batch_size, 128, 128) to (batch_size, 128, 128, 1)
-    stroke = stroke.view(-1, 128, 128, 1)
-
-    # Multiply the stroke with the color
-    color_stroke = stroke * action[:, -3:].view(-1, 1, 1, 3)
-
-    # Reshape from (batch_size, 128, 128, 1) to (batch_size, 1, 128, 128)
-    stroke = stroke.permute(0, 3, 1, 2)
-
-    # Reshape from (batch_size, 128, 128, 3) to (batch_size, 3, 128, 128)
-    color_stroke = color_stroke.permute(0, 3, 1, 2)
-
-    # Reshape from (batch_size, 1, 128, 128) to (batch_size, 5, 1, 128, 128)
-    stroke = stroke.view(-1, 5, 1, 128, 128)
-
-    # Reshape from (batch_size, 3, 128, 128) to (batch_size, 5, 3, 128, 128)
-    color_stroke = color_stroke.view(-1, 5, 3, 128, 128)
-
-    for i in range(5):
-        # At the same time - 'erase' already drawn pixels and add in the new stroke
-        canvas = canvas * (1 - stroke[:, i]) + color_stroke[:, i]
-    return canvas
-
-
 class DDPG(object):
     def __init__(self, batch_size=64, env_batch=1, max_step=40, tau=0.001, discount=0.9, rmsize=800, writer=None, resume=None, output_path=None):
         self.max_step = max_step
         self.batch_size = batch_size
         self.env_batch = env_batch
 
-        self.actor = ResNet(9, 18, 65)
-        self.actor_target = ResNet(9, 18, 65)
-        self.critic = ResNet_wobn(3 + 9, 18, 1)
-        self.critic_target = ResNet_wobn(3 + 9, 18, 1)
+        input_dim = 4 + 4 + 1 + 2  # target, canvas, stepnum, coord
+
+        self.actor = ResNet(input_dim, 18, 65)
+        self.actor_target = ResNet(input_dim, 18, 65)
+        # 4 + - also adding the last canvas
+        self.critic = ResNet_wobn(4 + input_dim, 18, 1)
+        self.critic_target = ResNet_wobn(4 + input_dim, 18, 1)
 
         self.actor_optim = Adam(self.actor.parameters(), lr=1e-2)
         self.critic_optim = Adam(self.critic.parameters(), lr=1e-2)
@@ -122,8 +91,8 @@ class DDPG(object):
         # - the observation (cavnas & target image)
         # - the step number (divided by max steps)
         # - the coordinates of the pixels
-        state = torch.cat([state[:, :6].float() / 255,
-                           state[:, 6:7].float() / self.max_step,
+        state = torch.cat([state[:, :8].float() / 255,
+                           state[:, 8:9].float() / self.max_step,
                            coord.expand(state.shape[0], 2, 128, 128)],
                           1)
         if target:
@@ -155,12 +124,12 @@ class DDPG(object):
             Q: the Q-value of the action in the given state
             L2_reward: the L2 reward of the action in the given state
         """
-        T = state[:, 6:7]
-        gt = state[:, 3:6].float() / 255
-        canvas0 = state[:, :3].float() / 255
+        T = state[:, 8:9]
+        gt = state[:, 4:8].float() / 255
+        canvas0 = state[:, :4].float() / 255
         canvas1 = decode(action, canvas0)
-        L2_reward = ((canvas0 - gt) ** 2).mean(1).mean(1).mean(1) - \
-            ((canvas1 - gt) ** 2).mean(1).mean(1).mean(1)
+        L2_reward = ((canvas0 - gt) ** 2).mean(1).mean(1).mean(1).mean(1) - \
+            ((canvas1 - gt) ** 2).mean(1).mean(1).mean(1).mean(1)
         coord_ = coord.expand(state.shape[0], 2, 128, 128)
         merged_state = torch.cat(
             [canvas0, canvas1, gt, (T+1).float()/self.max_step, coord_], 1)
