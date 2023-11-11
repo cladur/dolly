@@ -24,7 +24,7 @@ def train(agent: DDPG, env: CanvasEnv):
     episode_train_times = 10
     validate_interval = 10
     lr = (3e-4, 1e-3)
-    warmup = 50
+    warmup = 400
 
     while step <= train_times:
         print(step, episode, episode_steps)
@@ -115,9 +115,9 @@ def train(agent: DDPG, env: CanvasEnv):
 if __name__ == "__main__":
     torch.backends.cudnn.deterministic = False
     torch.backends.cudnn.benchmark = True
-    torch.autograd.set_detect_anomaly(True)
-    batch_size = 64
-    max_step = 1
+
+    batch_size = 96
+    max_step = 8
 
     canvas_env = CanvasEnv(max_step=max_step, batch_size=batch_size)
     canvas_env.load_data()

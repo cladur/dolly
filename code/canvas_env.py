@@ -43,7 +43,8 @@ def decode(action, canvas):  # b * (10 + 3)
     stroke = stroke.view(-1, 128, 128, 1)
 
     # Multiply the stroke with the color
-    color_stroke = stroke * action[:, 10:13].view(-1, 1, 1, 3)
+    binary_stroke = stroke > 0.01
+    color_stroke = binary_stroke * action[:, 10:13].view(-1, 1, 1, 3)
 
     # Add alpha channel to the color_stroke
     color_stroke = torch.cat((color_stroke, stroke), 3)
@@ -64,9 +65,16 @@ def decode(action, canvas):  # b * (10 + 3)
 
     is_drawing = is_drawing > 0.5
 
+    # Repeat the stroke 4 times
+    stroke_for_rgb = (1 - stroke * is_drawing)
+    stroke_for_alpha = (1 - stroke)
+    erase_draw_stroke = torch.cat([stroke_for_rgb, stroke_for_rgb, stroke_for_rgb, stroke_for_alpha], 2)
+    
     for i in range(5):
     #     # At the same time - 'erase' already drawn pixels and add in the new stroke
-        canvas = canvas * (1 - stroke[:, i]) + color_stroke[:, i] * is_drawing[:, i]
+        canvas = canvas * erase_draw_stroke[:, i] + color_stroke[:, i] * is_drawing[:, i]
+        # canvas[:, 0:3] = canvas[:, 0:3] * (1 - stroke[:, i, 0] * is_drawing[:, i])
+        # canvas[:, 3] = canvas[:, 3] * (1 - stroke[:, i, 0]) + color_stroke[:, i, 3] * is_drawing[:, i]
     return canvas
 
 
@@ -129,7 +137,7 @@ class CanvasEnv(gym.Env):
                 print('loaded ' + str(train_num) + ' train images')
 
                 loaded += 1
-                if loaded >= 500:
+                if loaded >= 3000:
                     break
 
         for i in range(10):
@@ -145,7 +153,7 @@ class CanvasEnv(gym.Env):
                 print('loaded ' + str(test_num) + ' test images')
 
                 loaded += 1
-                if loaded >= 50:
+                if loaded >= 300:
                     break
 
         print('finish loading data, {} training images, {} testing images'.format(
