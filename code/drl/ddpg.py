@@ -138,7 +138,7 @@ class DDPG(object):
             [canvas0, canvas1, gt, (T+1).float()/self.max_step, coord_], 1)
         if target:
             Q = self.critic_target.forward(merged_state)
-            return (Q + L2_reward), L2_reward
+            return (Q + gan_reward), gan_reward
         else:
             Q = self.critic.forward(merged_state)
 
@@ -146,7 +146,7 @@ class DDPG(object):
                 wandb.log({"expected reward": Q.mean().item()},
                           step=self.current_step)
 
-            return (Q + L2_reward), L2_reward
+            return (Q + gan_reward), gan_reward
 
     def observe(self, reward, state, done):
         """
@@ -184,7 +184,7 @@ class DDPG(object):
         state, action, reward, next_state, terminal = self.memory.sample(
             self.batch_size, device)
 
-        # self.update_gan(next_state)
+        self.update_gan(next_state)
 
         with torch.no_grad():
             next_action = self.play(next_state, True)
@@ -216,6 +216,11 @@ class DDPG(object):
                 target_param.data * (1.0 - self.tau) + param.data * self.tau)
 
         return -policy_loss, value_loss
+
+    def update_gan(self, state):
+        canvas = state[:, :4]
+        gt = state[:, 4 : 8]
+        fake, real, penal = update(canvas.float() / 255, gt.float() / 255)
 
     def reset(self, obs, factor):
         self.state = obs
