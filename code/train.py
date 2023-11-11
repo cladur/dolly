@@ -20,9 +20,9 @@ def to_numpy(var):
 def train(agent: DDPG, env: CanvasEnv):
     step = episode = episode_steps = 0
     observation = None
-    noise_factor = 0.0
+    noise_factor = 0.3
     episode_train_times = 10
-    validate_interval = 25
+    validate_interval = 10
     lr = (3e-4, 1e-3)
     warmup = 50
 
@@ -56,9 +56,10 @@ def train(agent: DDPG, env: CanvasEnv):
             avg_dist /= done_count
             wandb.log({"distance": avg_dist}, step=step)
 
-        if step % 50 == 0 and best_done_index is not None:
-            G = env.canvas[best_done_index].cpu().data.numpy()
-            GT = env.gt[best_done_index].cpu().data.numpy()
+        if step % validate_interval == 0 and best_done_index is not None:
+            random_index = random.randint(0, env.batch_size - 1)
+            G = env.canvas[random_index].cpu().data.numpy()
+            GT = env.gt[random_index].cpu().data.numpy()
 
             G = np.transpose(G, (1, 2, 0))
             GT = np.transpose(GT, (1, 2, 0))
@@ -114,8 +115,8 @@ def train(agent: DDPG, env: CanvasEnv):
 if __name__ == "__main__":
     torch.backends.cudnn.deterministic = False
     torch.backends.cudnn.benchmark = True
-
-    batch_size = 96
+    torch.autograd.set_detect_anomaly(True)
+    batch_size = 64
     max_step = 1
 
     canvas_env = CanvasEnv(max_step=max_step, batch_size=batch_size)

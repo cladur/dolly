@@ -13,7 +13,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 width = 128
 
 T = torch.ones([1, 1, width, width], device=device)
-img = cv2.imread('200.png', cv2.IMREAD_UNCHANGED)
+img = cv2.imread('410.png', cv2.IMREAD_UNCHANGED)
 
 coord = torch.zeros([1, 2, width, width], device=device)
 for i in range(width):
@@ -33,7 +33,7 @@ def decode(action, canvas):  # b * (10 + 3)
     # 10-12: color
 
     # Reshape from (batch_size * 13) to (batch_size, 13)
-    action = action.view(-1, 10 + 3)
+    action = action.view(-1, 10 + 4)
     # Decode the stroke into a 128x128 image
     stroke = 1 - renderer(action[:, :10])
 
@@ -41,7 +41,7 @@ def decode(action, canvas):  # b * (10 + 3)
     stroke = stroke.view(-1, 128, 128, 1)
 
     # Multiply the stroke with the color
-    color_stroke = stroke * action[:, -3:].view(-1, 1, 1, 3)
+    color_stroke = stroke * action[:, 10:13].view(-1, 1, 1, 3)
 
     # Add alpha channel to the color_stroke
     color_stroke = torch.cat((color_stroke, stroke), 3)
@@ -57,9 +57,14 @@ def decode(action, canvas):  # b * (10 + 3)
 
     # Reshape from (batch_size, 4, 128, 128) to (batch_size, 5, 4, 128, 128)
     color_stroke = color_stroke.view(-1, 5, 4, 128, 128)
+
+    is_drawing = action[:, 13].view(-1, 5, 1, 1, 1)
+
+    is_drawing = is_drawing > 0.5
+
     res = []
     for i in range(5):
-        canvas = canvas * (1 - stroke[:, i]) + color_stroke[:, i]
+        canvas = canvas * (1 - stroke[:, i]) + color_stroke[:, i] * is_drawing[:, i]
         res.append(canvas)
     return canvas, res
 
@@ -72,7 +77,7 @@ def save_img(res, imgid):
     cv2.imwrite('output/{}.png'.format(imgid), output)
 
 
-actor = ResNet(11, 18, 65)
+actor = ResNet(11, 18, 70)
 actor.load_state_dict(torch.load('actor.pkl', map_location=device))
 actor = actor.to(device).eval()
 renderer = renderer.to(device).eval()

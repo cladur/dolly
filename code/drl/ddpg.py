@@ -9,6 +9,7 @@ from drl.actor import ResNet
 from drl.critic import ResNet_wobn
 from drl.replay_buffer import ReplayBuffer
 from drl.noise import OrnsteinUhlenbeckActionNoise
+from drl.wgan import *
 from canvas_env import CanvasEnv, decode
 
 from renderer.renderer import Renderer
@@ -48,9 +49,10 @@ class DDPG(object):
         self.env_batch = env_batch
 
         input_dim = 4 + 4 + 1 + 2  # target, canvas, stepnum, coord
+        output_dim = (10 + 3 + 1) * 5 # (stroke, color, erase) * 5 strokes
 
-        self.actor = ResNet(input_dim, 18, 65)
-        self.actor_target = ResNet(input_dim, 18, 65)
+        self.actor = ResNet(input_dim, 18, output_dim)
+        self.actor_target = ResNet(input_dim, 18, output_dim)
         # 4 + - also adding the last canvas
         self.critic = ResNet_wobn(4 + input_dim, 18, 1)
         self.critic_target = ResNet_wobn(4 + input_dim, 18, 1)
@@ -128,8 +130,9 @@ class DDPG(object):
         gt = state[:, 4:8].float() / 255
         canvas0 = state[:, :4].float() / 255
         canvas1 = decode(action, canvas0)
-        L2_reward = ((canvas0 - gt) ** 2).mean(1).mean(1).mean(1) - \
-            ((canvas1 - gt) ** 2).mean(1).mean(1).mean(1)
+        gan_reward = cal_reward(canvas1, gt) - cal_reward(canvas0, gt)
+        # L2_reward = ((canvas0 - gt) ** 2).mean(1).mean(1).mean(1) - \
+        #     ((canvas1 - gt) ** 2).mean(1).mean(1).mean(1)
         coord_ = coord.expand(state.shape[0], 2, 128, 128)
         merged_state = torch.cat(
             [canvas0, canvas1, gt, (T+1).float()/self.max_step, coord_], 1)

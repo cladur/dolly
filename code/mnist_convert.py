@@ -14,11 +14,11 @@ def transform_image(image):
 
     # Turn new_image to hsv and randomly change the hue, saturation and value of white pixels
     new_image = cv2.cvtColor(new_image, cv2.COLOR_GRAY2RGB)
-    hsv = cv2.cvtColor(new_image, cv2.COLOR_RGB2HSV)
-    hsv[:, :, 0] = np.random.randint(0, 180)
-    hsv[:, :, 1] = np.random.randint(0, 256)
-    hsv[:, :, 2] = np.random.randint(0, 256)
-    new_image = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
+    # hsv = cv2.cvtColor(new_image, cv2.COLOR_RGB2HSV)
+    # hsv[:, :, 0] = np.random.randint(0, 180)
+    # hsv[:, :, 1] = np.random.randint(0, 256)
+    # hsv[:, :, 2] = np.random.randint(0, 256)
+    # new_image = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
     new_image = cv2.cvtColor(new_image, cv2.COLOR_RGB2RGBA)
 
     # Set new_image's alpha channel to values from the old image

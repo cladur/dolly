@@ -32,9 +32,10 @@ def decode(action, canvas):  # b * (10 + 3)
     # Action        Positions                Width   Opacity
     # 0-9: stroke - (x0, y0, x1, y1, x2, y2, z0, z2, w0, w2)
     # 10-12: color
+    # 13: erase or draw
 
     # Reshape from (batch_size * 13) to (batch_size, 13)
-    action = action.view(-1, 10 + 3)
+    action = action.view(-1, 10 + 4)
     # Decode the stroke into a 128x128 image
     stroke = 1 - renderer(action[:, :10])
 
@@ -42,7 +43,7 @@ def decode(action, canvas):  # b * (10 + 3)
     stroke = stroke.view(-1, 128, 128, 1)
 
     # Multiply the stroke with the color
-    color_stroke = stroke * action[:, -3:].view(-1, 1, 1, 3)
+    color_stroke = stroke * action[:, 10:13].view(-1, 1, 1, 3)
 
     # Add alpha channel to the color_stroke
     color_stroke = torch.cat((color_stroke, stroke), 3)
@@ -59,9 +60,13 @@ def decode(action, canvas):  # b * (10 + 3)
     # Reshape from (batch_size, 4, 128, 128) to (batch_size, 5, 4, 128, 128)
     color_stroke = color_stroke.view(-1, 5, 4, 128, 128)
 
+    is_drawing = action[:, 13].view(-1, 5, 1, 1, 1)
+
+    is_drawing = is_drawing > 0.5
+
     for i in range(5):
-        # At the same time - 'erase' already drawn pixels and add in the new stroke
-        canvas = canvas * (1 - stroke[:, i]) + color_stroke[:, i]
+    #     # At the same time - 'erase' already drawn pixels and add in the new stroke
+        canvas = canvas * (1 - stroke[:, i]) + color_stroke[:, i] * is_drawing[:, i]
     return canvas
 
 
@@ -124,7 +129,7 @@ class CanvasEnv(gym.Env):
                 print('loaded ' + str(train_num) + ' train images')
 
                 loaded += 1
-                if loaded >= 1000:
+                if loaded >= 500:
                     break
 
         for i in range(10):
@@ -140,7 +145,7 @@ class CanvasEnv(gym.Env):
                 print('loaded ' + str(test_num) + ' test images')
 
                 loaded += 1
-                if loaded >= 100:
+                if loaded >= 50:
                     break
 
         print('finish loading data, {} training images, {} testing images'.format(
