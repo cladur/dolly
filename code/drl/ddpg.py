@@ -130,7 +130,10 @@ class DDPG(object):
         gt = state[:, 4:8].float() / 255
         canvas0 = state[:, :4].float() / 255
         canvas1 = decode(action, canvas0)
-        gan_reward = cal_reward(canvas1, gt) - cal_reward(canvas0, gt)
+        canvas0_rgb = canvas0[:, :3] * canvas0[:, 3].unsqueeze(1)
+        canvas1_rgb = canvas1[:, :3] * canvas1[:, 3].unsqueeze(1)
+        gt_rgb = gt[:, :3] * gt[:, 3].unsqueeze(1)
+        gan_reward = cal_reward(canvas1_rgb, gt_rgb) - cal_reward(canvas0_rgb, gt_rgb)
         # L2_reward = ((canvas0 - gt) ** 2).mean(1).mean(1).mean(1) - \
         #     ((canvas1 - gt) ** 2).mean(1).mean(1).mean(1)
         coord_ = coord.expand(state.shape[0], 2, 128, 128)
@@ -220,6 +223,9 @@ class DDPG(object):
     def update_gan(self, state):
         canvas = state[:, :4]
         gt = state[:, 4 : 8]
+
+        canvas = canvas[:, :3] * canvas[:, 3].unsqueeze(1)
+        gt = gt[:, :3] * gt[:, 3].unsqueeze(1)
         fake, real, penal = update(canvas.float() / 255, gt.float() / 255)
 
     def reset(self, obs, factor):
