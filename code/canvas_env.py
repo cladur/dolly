@@ -93,18 +93,6 @@ def decode(action, canvas):  # b * (10 + 3)
     return canvas
 
 
-def get_dist(canvas0, canvas1):
-    # Taken from: https://stackoverflow.com/a/47586402/12218377
-    r_dist = (canvas0[:, 0] - canvas1[:, 0]) ** 2
-    g_dist = (canvas0[:, 1] - canvas1[:, 1]) ** 2
-    b_dist = (canvas0[:, 2] - canvas1[:, 2]) ** 2
-    rgb_dist = (r_dist + g_dist + b_dist) / 3.0
-
-    alpha_dist = (canvas0[:, 3] - canvas1[:, 3]) ** 2
-    alpha_dist = alpha_dist.view(-1, 1, 128, 128)
-    return (alpha_dist / 2.0 + rgb_dist * canvas0[:, 3] * canvas1[:, 3]).mean(1).mean(1).mean(1)
-
-
 aug = transforms.Compose(
     [transforms.ToPILImage(),
      transforms.RandomHorizontalFlip(),
