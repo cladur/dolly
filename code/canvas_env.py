@@ -28,6 +28,18 @@ def to_numpy(var):
     return var.cpu().data.numpy() if USE_CUDA else var.data.numpy()
 
 
+def get_dist(canvas0, canvas1):
+    # Taken from: https://stackoverflow.com/a/47586402/12218377
+    r_dist = ((canvas0[:, 0] - canvas1[:, 0]) ** 2)
+    g_dist = ((canvas0[:, 1] - canvas1[:, 1]) ** 2)
+    b_dist = ((canvas0[:, 2] - canvas1[:, 2]) ** 2)
+
+    rgb_dist = (r_dist + g_dist + b_dist) / 3.0
+    alpha_dist = (canvas0[:, 3] - canvas1[:, 3]) ** 2
+    alpha_dist = alpha_dist.view(-1, 1, 128, 128)
+    return (alpha_dist / 2.0 + rgb_dist * canvas0[:, 3] * canvas1[:, 3]).mean(1).mean(1).mean(1)
+
+
 def decode(action, canvas):  # b * (10 + 3)
     # Action        Positions                Width   Opacity
     # 0-9: stroke - (x0, y0, x1, y1, x2, y2, z0, z2, w0, w2)
@@ -68,15 +80,18 @@ def decode(action, canvas):  # b * (10 + 3)
     # Repeat the stroke 4 times
     stroke_for_rgb = (1 - stroke * is_drawing)
     stroke_for_alpha = (1 - stroke)
-    erase_draw_stroke = torch.cat([stroke_for_rgb, stroke_for_rgb, stroke_for_rgb, stroke_for_alpha], 2)
-    
+    erase_draw_stroke = torch.cat(
+        [stroke_for_rgb, stroke_for_rgb, stroke_for_rgb, stroke_for_alpha], 2)
+
     for i in range(5):
         # At the same time - 'erase' already drawn pixels and add in the new stroke
-        canvas = canvas * erase_draw_stroke[:, i] + color_stroke[:, i] * is_drawing[:, i]
+        canvas = canvas * erase_draw_stroke[:, i] + \
+            color_stroke[:, i] * is_drawing[:, i]
         # canvas[:, 0:3] = canvas[:, 0:3] * (1 - stroke[:, i, 0] * is_drawing[:, i])
         # canvas[:, 3] = canvas[:, 3] * (1 - stroke[:, i, 0]) + color_stroke[:, i, 3] * is_drawing[:, i]
-    
+
     return canvas
+
 
 def get_dist(canvas0, canvas1):
     # Taken from: https://stackoverflow.com/a/47586402/12218377
@@ -88,6 +103,7 @@ def get_dist(canvas0, canvas1):
     alpha_dist = (canvas0[:, 3] - canvas1[:, 3]) ** 2
     alpha_dist = alpha_dist.view(-1, 1, 128, 128)
     return (alpha_dist / 2.0 + rgb_dist * canvas0[:, 3] * canvas1[:, 3]).mean(1).mean(1).mean(1)
+
 
 aug = transforms.Compose(
     [transforms.ToPILImage(),
@@ -208,7 +224,7 @@ class CanvasEnv(gym.Env):
         return ob, reward, np.array([done] * self.batch_size), info
 
     def get_dist(self):
-        return (((self.gt.float() - self.canvas.float()) / 255) ** 2).mean(1).mean(1).mean(1)
+        return get_dist(self.canvas / 255, self.gt / 255)
 
     def close(self):
         cv2.destroyAllWindows()

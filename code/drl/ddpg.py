@@ -10,7 +10,7 @@ from drl.critic import ResNet_wobn
 from drl.replay_buffer import ReplayBuffer
 from drl.noise import OrnsteinUhlenbeckActionNoise
 from drl.wgan import *
-from canvas_env import CanvasEnv, decode
+from canvas_env import CanvasEnv, decode, get_dist
 
 from renderer.renderer import Renderer
 
@@ -49,7 +49,7 @@ class DDPG(object):
         self.env_batch = env_batch
 
         input_dim = 4 + 4 + 1 + 2  # target, canvas, stepnum, coord
-        output_dim = (10 + 3 + 1) * 5 # (stroke, color, erase) * 5 strokes
+        output_dim = (10 + 3 + 1) * 5  # (stroke, color, erase) * 5 strokes
 
         self.actor = ResNet(input_dim, 18, output_dim)
         self.actor_target = ResNet(input_dim, 18, output_dim)
@@ -133,15 +133,17 @@ class DDPG(object):
         canvas0_rgb = canvas0[:, :3] * canvas0[:, 3].unsqueeze(1)
         canvas1_rgb = canvas1[:, :3] * canvas1[:, 3].unsqueeze(1)
         gt_rgb = gt[:, :3] * gt[:, 3].unsqueeze(1)
-        gan_reward = cal_reward(canvas1_rgb, gt_rgb) - cal_reward(canvas0_rgb, gt_rgb)
+        # gan_reward = cal_reward(canvas1_rgb, gt_rgb) - \
+        #     cal_reward(canvas0_rgb, gt_rgb)
         # L2_reward = ((canvas0 - gt) ** 2).mean(1).mean(1).mean(1) - \
         #     ((canvas1 - gt) ** 2).mean(1).mean(1).mean(1)
+        L2_reward = get_dist(canvas0, gt) - get_dist(canvas1, gt)
         coord_ = coord.expand(state.shape[0], 2, 128, 128)
         merged_state = torch.cat(
             [canvas0, canvas1, gt, (T+1).float()/self.max_step, coord_], 1)
         if target:
             Q = self.critic_target.forward(merged_state)
-            return (Q + gan_reward), gan_reward
+            return (Q + L2_reward), L2_reward
         else:
             Q = self.critic.forward(merged_state)
 
@@ -149,14 +151,16 @@ class DDPG(object):
                 wandb.log({"expected reward": Q.mean().item()},
                           step=self.current_step)
 
-            return (Q + gan_reward), gan_reward
+            return (Q + L2_reward), L2_reward
 
     def observe(self, reward, state, done):
         """
         Add the most recent transition to the memory buffer.
         """
-        s0 = torch.tensor(self.state, device='cpu')
-        s1 = torch.tensor(state, device='cpu')
+        # s0 = torch.tensor(self.state, device='cpu')
+        # s1 = torch.tensor(state, device='cpu')
+        s0 = self.state.clone().detach()
+        s1 = state.clone().detach()
         a = to_tensor(self.action, "cpu")
         r = to_tensor(reward, "cpu")
         d = to_tensor(done.astype('float32'), "cpu")
@@ -222,7 +226,7 @@ class DDPG(object):
 
     def update_gan(self, state):
         canvas = state[:, :4]
-        gt = state[:, 4 : 8]
+        gt = state[:, 4: 8]
 
         canvas = canvas[:, :3] * canvas[:, 3].unsqueeze(1)
         gt = gt[:, :3] * gt[:, 3].unsqueeze(1)
