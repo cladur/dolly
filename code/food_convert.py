@@ -43,5 +43,3 @@ for folder in os.listdir(food_dir):
         print(f"Transformed {image_path} to {output_path}")
 
         image_number += 1
-    if image_number > 100:
-        break
