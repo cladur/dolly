@@ -136,10 +136,10 @@ class CanvasEnv(gym.Env):
                               dtype=torch.uint8).to(device)
 
     def load_data(self):
-        global train_num, test_num
         self.load_food()
 
     def load_food(self):
+        global train_num, test_num
         for i in range(1152):
             img = cv2.imread('./data/food_transformed/' +
                              str(i) + '.png', cv2.IMREAD_UNCHANGED)
@@ -159,6 +159,7 @@ class CanvasEnv(gym.Env):
             print('loaded ' + str(test_num) + ' test images')
 
     def load_mnist(self):
+        global train_num, test_num
         for i in range(10):
             loaded = 0
             # For image in directory
