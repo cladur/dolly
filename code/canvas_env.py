@@ -136,9 +136,29 @@ class CanvasEnv(gym.Env):
                               dtype=torch.uint8).to(device)
 
     def load_data(self):
-        # MNIST
         global train_num, test_num
+        self.load_food()
 
+    def load_food(self):
+        for i in range(1152):
+            img = cv2.imread('./data/food_transformed/' +
+                             str(i) + '.png', cv2.IMREAD_UNCHANGED)
+            img = cv2.resize(img, (width, width))
+            train_num += 1
+            img_train.append(img)
+
+            print('loaded ' + str(train_num) + ' train images')
+
+        for i in range(128):
+            img = cv2.imread('./data/food_transformed/' +
+                             str(1152 + i) + '.png', cv2.IMREAD_UNCHANGED)
+            img = cv2.resize(img, (width, width))
+            test_num += 1
+            img_test.append(img)
+
+            print('loaded ' + str(test_num) + ' test images')
+
+    def load_mnist(self):
         for i in range(10):
             loaded = 0
             # For image in directory
