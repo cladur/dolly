@@ -64,7 +64,8 @@ def train(agent: DDPG, env: CanvasEnv):
             G = np.transpose(G, (1, 2, 0))
             GT = np.transpose(GT, (1, 2, 0))
 
-            cv2.imwrite('www.png', GT)
+            cv2.imwrite('g.png', G)
+            cv2.imwrite('gt.png', GT)
 
             image_array = np.concatenate((G, GT), axis=1)
 
