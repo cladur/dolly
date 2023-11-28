@@ -117,7 +117,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
 
     batch_size = 96
-    max_step = 1
+    max_step = 16
 
     canvas_env = CanvasEnv(max_step=max_step, batch_size=batch_size)
     canvas_env.load_data()
