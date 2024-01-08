@@ -11,12 +11,12 @@ food_dir = "data/food/images"
 def transform_image(image):
     # Make copy of the image
     new_image = np.copy(image)
-    # new_image = cv2.cvtColor(new_image, cv2.COLOR_RGB2RGBA)
+    new_image = cv2.cvtColor(new_image, cv2.COLOR_RGB2RGBA)
 
     # # Replace white pixels with transparency
-    # grayscale = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-    # _, binary = cv2.threshold(grayscale, 250, 255, cv2.THRESH_BINARY)
-    # new_image[binary == 255] = [0, 0, 0, 0]  # Transparency
+    grayscale = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    _, binary = cv2.threshold(grayscale, 250, 255, cv2.THRESH_BINARY)
+    new_image[binary == 255] = [0, 0, 0, 0]  # Transparency
 
     # Resize to 128x128
     new_image = cv2.resize(new_image, (128, 128), interpolation=cv2.INTER_AREA)
