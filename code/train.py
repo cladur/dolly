@@ -62,7 +62,7 @@ def train(agent: DDPG, env: CanvasEnv):
             GT = env.gt[random_index].cpu().data.numpy()
 
             action = action[random_index]
-            action = action.view(-1, 14)
+            action = action.reshape(-1, 14)
 
             G = np.transpose(G, (1, 2, 0))
             GT = np.transpose(GT, (1, 2, 0))
