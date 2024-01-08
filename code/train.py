@@ -60,7 +60,7 @@ def train(agent: DDPG, env: CanvasEnv):
             random_index = random.randint(0, env.batch_size - 1)
             G = env.canvas[random_index].cpu().data.numpy()
             GT = env.gt[random_index].cpu().data.numpy()
-            action = action[random_index].cpu().data.numpy()
+            action = action[random_index]
 
             G = np.transpose(G, (1, 2, 0))
             GT = np.transpose(GT, (1, 2, 0))
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
 
     batch_size = 96
-    max_step = 8
+    max_step = 2
 
     canvas_env = CanvasEnv(max_step=max_step, batch_size=batch_size)
     canvas_env.load_data()
