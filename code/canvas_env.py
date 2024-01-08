@@ -144,23 +144,23 @@ class CanvasEnv(gym.Env):
 
     def load_food(self):
         global train_num, test_num
-        for i in range(1152):
+        imgs = []
+        for i in range(1280):
             img = cv2.imread('./data/food_transformed/' +
                              str(i) + '.png', cv2.IMREAD_UNCHANGED)
             img = cv2.resize(img, (width, width))
             train_num += 1
-            img_train.append(img)
+            imgs.append(img)
 
-            print('loaded ' + str(train_num) + ' train images')
+            print('loaded ' + str(train_num) + ' images')
 
-        for i in range(128):
-            img = cv2.imread('./data/food_transformed/' +
-                             str(1152 + i) + '.png', cv2.IMREAD_UNCHANGED)
-            img = cv2.resize(img, (width, width))
-            test_num += 1
-            img_test.append(img)
+        imgs = np.array(imgs)
+        np.random.shuffle(imgs)
 
-            print('loaded ' + str(test_num) + ' test images')
+        img_train.extend(imgs[:1152])
+        img_test.extend(imgs[1152:])
+        train_num = 1152
+        test_num = 128
 
     def load_mnist(self):
         global train_num, test_num
