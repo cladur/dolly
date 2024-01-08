@@ -82,7 +82,7 @@ def train(agent: DDPG, env: CanvasEnv):
             action_table = wandb.Table(data=action, columns=[
                                        "x0", "y0", "x1", "y1", "x2", "y2", "z0", "z2", "w0", "w2", "r", "g", "b", "erase_or_draw"])
 
-            wandb.log({"image": images, "table_key": action_table}, step=step)
+            wandb.log({"image": images, "action_table": action_table}, step=step)
 
         agent.observe(reward, observation, done)
 
