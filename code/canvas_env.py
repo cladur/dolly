@@ -54,6 +54,10 @@ def decode(action, canvas):  # b * (10 + 3)
     # Decode the stroke into a 128x128 image
     stroke = 1 - renderer(action[:, :10])
 
+    # Push alpha values higher than 0.9 up, so that they end up being completely opaque
+    stroke = stroke * 1.1
+    stroke = torch.clamp(stroke, 0, 1)
+
     # Reshape from (batch_size, 128, 128) to (batch_size, 128, 128, 1)
     stroke = stroke.view(-1, 128, 128, 1)
 
@@ -88,11 +92,12 @@ def decode(action, canvas):  # b * (10 + 3)
 
     for i in range(5):
         # At the same time - 'erase' already drawn pixels and add in the new stroke
+        # canvas = canvas + color_stroke[:, i] * is_drawing[:, i]
         canvas = canvas * erase_draw_stroke[:, i] + \
             color_stroke[:, i] * is_drawing[:, i]
         # canvas[:, 0:3] = canvas[:, 0:3] * (1 - stroke[:, i, 0] * is_drawing[:, i])
         # canvas[:, 3] = canvas[:, 3] * (1 - stroke[:, i, 0]) + color_stroke[:, i, 3] * is_drawing[:, i]
-        canvas = torch.clamp(canvas, 0, 1)
+        # canvas = torch.clamp(canvas, 0, 1)
 
     return canvas
 
