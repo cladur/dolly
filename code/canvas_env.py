@@ -154,6 +154,7 @@ class CanvasEnv(gym.Env):
             img = cv2.imread('./data/food_transformed/' +
                              str(i) + '.png', cv2.IMREAD_UNCHANGED)
             img = cv2.resize(img, (width, width))
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
             train_num += 1
             imgs.append(img)
 
@@ -176,6 +177,7 @@ class CanvasEnv(gym.Env):
                 img = cv2.imread('./data/mnist_transformed/train/' + str(i) +
                                  '/' + filename, cv2.IMREAD_UNCHANGED)
                 img = cv2.resize(img, (width, width))
+                img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
                 train_num += 1
                 img_train.append(img)
 
@@ -192,6 +194,7 @@ class CanvasEnv(gym.Env):
                 img = cv2.imread('./data/mnist_transformed/test/' + str(i) +
                                  '/' + filename, cv2.IMREAD_UNCHANGED)
                 img = cv2.resize(img, (width, width))
+                img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
                 test_num += 1
                 img_test.append(img)
 

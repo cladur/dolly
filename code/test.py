@@ -13,7 +13,8 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 width = 128
 
 T = torch.ones([1, 1, width, width], device=device)
-img = cv2.imread('410.png', cv2.IMREAD_UNCHANGED)
+img = cv2.imread('data/food_transformed/0.png', cv2.IMREAD_UNCHANGED)
+img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
 
 coord = torch.zeros([1, 2, width, width], device=device)
 for i in range(width):
@@ -113,14 +114,19 @@ os.system('mkdir output')
 max_step = 5
 imgid = 0
 
+action_list = []
+
 with torch.no_grad():
     # max_step = max_step // 2
     for i in range(max_step):
         stepnum = T * i / max_step
         actions = actor(torch.cat([canvas, img, stepnum, coord], 1))
         canvas, res = decode(actions, canvas)
+        action = actions.cpu().data.numpy()[0].reshape(-1, 14)
+        print(action)
         print('canvas step {}, L2Loss = {}'.format(
             i, ((canvas - img) ** 2).mean()))
         for j in range(5):
             save_img(res[j], imgid)
             imgid += 1
+    save_img(img, imgid)

@@ -5,3 +5,6 @@ wandb
 __pycache__
 
 data
+output
+
+actor.pkl
