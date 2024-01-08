@@ -60,6 +60,7 @@ def train(agent: DDPG, env: CanvasEnv):
             random_index = random.randint(0, env.batch_size - 1)
             G = env.canvas[random_index].cpu().data.numpy()
             GT = env.gt[random_index].cpu().data.numpy()
+            action = action[random_index].cpu().data.numpy()
 
             G = np.transpose(G, (1, 2, 0))
             GT = np.transpose(GT, (1, 2, 0))
@@ -74,7 +75,9 @@ def train(agent: DDPG, env: CanvasEnv):
                 caption="Left: Generated, Right: Ground Truth"
             )
 
-            wandb.log({"image": images}, step=step)
+            action_table = wandb.Table(data=action)
+
+            wandb.log({"image": images, "table_key": action_table}, step=step)
 
         agent.observe(reward, observation, done)
 
