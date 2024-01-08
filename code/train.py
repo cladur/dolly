@@ -60,7 +60,9 @@ def train(agent: DDPG, env: CanvasEnv):
             random_index = random.randint(0, env.batch_size - 1)
             G = env.canvas[random_index].cpu().data.numpy()
             GT = env.gt[random_index].cpu().data.numpy()
+
             action = action[random_index]
+            action = action.reshape(1, 14)
 
             G = np.transpose(G, (1, 2, 0))
             GT = np.transpose(GT, (1, 2, 0))
