@@ -97,7 +97,7 @@ def decode(action, canvas):  # b * (10 + 3)
             color_stroke[:, i] * is_drawing[:, i]
         # canvas[:, 0:3] = canvas[:, 0:3] * (1 - stroke[:, i, 0] * is_drawing[:, i])
         # canvas[:, 3] = canvas[:, 3] * (1 - stroke[:, i, 0]) + color_stroke[:, i, 3] * is_drawing[:, i]
-        # canvas = torch.clamp(canvas, 0, 1)
+        canvas = torch.clamp(canvas, 0, 1)
 
     return canvas
 

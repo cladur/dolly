@@ -61,6 +61,11 @@ def train(agent: DDPG, env: CanvasEnv):
             G = env.canvas[random_index].cpu().data.numpy()
             GT = env.gt[random_index].cpu().data.numpy()
 
+            # swap red and blue channel
+            # Shape (channels, width, height)
+            G = G[[2, 1, 0, 3], :, :]
+            GT = GT[[2, 1, 0, 3], :, :]
+
             action = action[random_index]
             action = action.reshape(-1, 14)
 
@@ -77,16 +82,6 @@ def train(agent: DDPG, env: CanvasEnv):
                 caption="Left: Generated, Right: Ground Truth action={}".format(
                     str(action))
             )
-
-            # Turn action into a Python like array representation, like
-            # [
-            #   [x0, y0, x1, y1, x2, y2, z0, z2, w0, w2, r, g, b, erase_or_draw],
-            #   [x0, y0, x1, y1, x2, y2, z0, z2, w0, w2, r, g, b, erase_or_draw],
-            #   [x0, y0, x1, y1, x2, y2, z0, z2, w0, w2, r, g, b, erase_or_draw],
-            # ]
-
-            # action_table = wandb.Table(data=action, columns=[
-            #                            "x0", "y0", "x1", "y1", "x2", "y2", "z0", "z2", "w0", "w2", "r", "g", "b", "erase_or_draw"])
 
             wandb.log({"image": images}, step=step)
 
