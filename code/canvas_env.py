@@ -63,12 +63,6 @@ def decode(action, canvas):  # b * (10 + 3)
     # Reshape from (batch_size, 1, 128, 128) to (batch_size, 5, 1, 128, 128)
     stroke = stroke.view(-1, 5, 1, 128, 128)
 
-    # Repeat the stroke 4 times
-    stroke_for_rgb = (1 - stroke * is_drawing)
-    stroke_for_alpha = (1 - stroke)
-    erase_draw_stroke = torch.cat(
-        [stroke_for_rgb, stroke_for_rgb, stroke_for_rgb, stroke_for_alpha], 2)
-
     # Map stroke from 0.05 - 0.95 to 0 - 1 due to how noisy the renderer can be
     stroke = (stroke - 0.05) / 0.9
     stroke = torch.clamp(stroke, 0, 1)
