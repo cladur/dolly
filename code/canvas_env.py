@@ -54,35 +54,14 @@ def decode(action, canvas):  # b * (10 + 3)
     # Decode the stroke into a 128x128 image
     stroke = 1 - renderer(action[:, :10])
 
-    # Push alpha values higher than 0.9 up, so that they end up being completely opaque
-    stroke = stroke * 1.1
-    stroke = torch.clamp(stroke, 0, 1)
-
     # Reshape from (batch_size, 128, 128) to (batch_size, 128, 128, 1)
     stroke = stroke.view(-1, 128, 128, 1)
-
-    # Multiply the stroke with the color
-    binary_stroke = stroke > 0.01
-    color_stroke = binary_stroke * action[:, 10:13].view(-1, 1, 1, 3)
-
-    # Add alpha channel to the color_stroke
-    color_stroke = torch.cat((color_stroke, stroke), 3)
 
     # Reshape from (batch_size, 128, 128, 1) to (batch_size, 1, 128, 128)
     stroke = stroke.permute(0, 3, 1, 2)
 
-    # Reshape from (batch_size, 128, 128, 4) to (batch_size, 4, 128, 128)
-    color_stroke = color_stroke.permute(0, 3, 1, 2)
-
     # Reshape from (batch_size, 1, 128, 128) to (batch_size, 5, 1, 128, 128)
     stroke = stroke.view(-1, 5, 1, 128, 128)
-
-    # Reshape from (batch_size, 4, 128, 128) to (batch_size, 5, 4, 128, 128)
-    color_stroke = color_stroke.view(-1, 5, 4, 128, 128)
-
-    is_drawing = action[:, 13].view(-1, 5, 1, 1, 1)
-
-    is_drawing = is_drawing > 0.5
 
     # Repeat the stroke 4 times
     stroke_for_rgb = (1 - stroke * is_drawing)
@@ -90,14 +69,58 @@ def decode(action, canvas):  # b * (10 + 3)
     erase_draw_stroke = torch.cat(
         [stroke_for_rgb, stroke_for_rgb, stroke_for_rgb, stroke_for_alpha], 2)
 
+    # Map stroke from 0.05 - 0.95 to 0 - 1 due to how noisy the renderer can be
+    stroke = (stroke - 0.05) / 0.9
+    stroke = torch.clamp(stroke, 0, 1)
+
+    stroke = stroke.view(-1, 5, 1, 128, 128)
+
+    color = action[:, 10:13].view(-1, 1, 1, 3)
+    color = color.permute(0, 3, 1, 2)
+    color = color.tile(1, 1, 128, 128)
+    color = color.view(-1, 5, 3, 128, 128)
+
+    # Is drawing? > 0.5 - Yes, < 0.5 - No
+    is_drawing = action[:, 13].view(-1, 5, 1, 1, 1)
+    is_drawing = is_drawing > 0.5
+    is_drawing = is_drawing.tile(1, 1, 128, 128)
+    is_drawing = is_drawing.view(-1, 5, 1, 128, 128)
+
+    canvas_alpha = canvas[:, 3].view(-1, 1, 1, 128, 128)
+    canvas_rgb = canvas[:, 0:3].view(-1, 1, 3, 128, 128)
+
     for i in range(5):
         # At the same time - 'erase' already drawn pixels and add in the new stroke
-        # canvas = canvas + color_stroke[:, i] * is_drawing[:, i]
-        canvas = canvas * erase_draw_stroke[:, i] + \
-            color_stroke[:, i] * is_drawing[:, i]
+        alpha_old = canvas_alpha
+        color_old = canvas_rgb
+
+        alpha_new = stroke[:, i].view(-1, 1, 1, 128, 128)
+        color_new = color[:, i].view(-1, 1, 3, 128, 128)
+        is_drawing_new = is_drawing[:, i].view(-1, 1, 1, 128, 128)
+
+        canvas_alpha = alpha_new * is_drawing_new + alpha_old * (1 - alpha_new)
+        canvas_rgb = (color_new * alpha_new * is_drawing_new +
+                      color_old * alpha_old * (1 - alpha_new)) / (canvas_alpha + 1e-8)
+
+        # # alpha = alpha_new + alpha_old * (1 - alpha_new)
+        # canvas[:, 3] = (alpha_new + alpha_old * (1 - alpha_new)).squeeze(1)
+
+        # # color = (color_new * alpha_new + color_old * alpha_old * (1 - alpha_new)) / alpha
+        # canvas[:, 0:3] = (color_new * alpha_new + color_old *
+        #                   alpha_old * (1 - alpha_new)) / (canvas[:, 3] + 1e-8)
+
+        # canvas[:, 0:3] = canvas[:, 0:3] * \
+        #     (1 - stroke[:, i, 0]) + color_stroke[:, i, 0:3]
+
+        # canvas[:, 3] += stroke[:, i, 0]
+
+        # canvas = canvas * erase_draw_stroke[:, i] + \
+        #     color_stroke[:, i] * is_drawing[:, i]
         # canvas[:, 0:3] = canvas[:, 0:3] * (1 - stroke[:, i, 0] * is_drawing[:, i])
         # canvas[:, 3] = canvas[:, 3] * (1 - stroke[:, i, 0]) + color_stroke[:, i, 3] * is_drawing[:, i]
-        canvas = torch.clamp(canvas, 0, 1)
+        # canvas = torch.clamp(canvas, 0, 1)
+
+    canvas = torch.concat([canvas_rgb, canvas_alpha], 2).squeeze(1)
 
     return canvas
 

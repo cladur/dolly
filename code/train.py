@@ -61,11 +61,6 @@ def train(agent: DDPG, env: CanvasEnv):
             G = env.canvas[random_index].cpu().data.numpy()
             GT = env.gt[random_index].cpu().data.numpy()
 
-            # swap red and blue channel
-            # Shape (channels, width, height)
-            G = G[[2, 1, 0, 3], :, :]
-            GT = GT[[2, 1, 0, 3], :, :]
-
             action = action[random_index]
             action = action.reshape(-1, 14)
 
@@ -127,7 +122,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
 
     batch_size = 96
-    max_step = 2
+    max_step = 5
 
     canvas_env = CanvasEnv(max_step=max_step, batch_size=batch_size)
     canvas_env.load_data()
