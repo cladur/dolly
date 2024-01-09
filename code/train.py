@@ -38,6 +38,8 @@ def train(agent: DDPG, env: CanvasEnv):
         action = agent.select_action(observation, noise_factor=noise_factor)
         observation, reward, done, _ = env.step(action)
 
+        print(done)
+
         # For done samples in a batch compute the average distance
         avg_dist = 0
         done_count = 0
@@ -121,7 +123,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.deterministic = False
     torch.backends.cudnn.benchmark = True
 
-    batch_size = 96
+    batch_size = 4
     max_step = 5
 
     canvas_env = CanvasEnv(max_step=max_step, batch_size=batch_size)

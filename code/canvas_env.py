@@ -49,6 +49,10 @@ def decode(action, canvas):  # b * (10 + 3)
     # 10-12: color
     # 13: erase or draw
 
+    # Compute mean value of the pixels on the canvas
+    mean = canvas.mean(1).mean(1).mean(1)
+    print("Mean canvas value: ", mean)
+
     # Reshape from (batch_size * 13) to (batch_size, 13)
     action = action.view(-1, 10 + 4)
     # Decode the stroke into a 128x128 image
@@ -95,24 +99,6 @@ def decode(action, canvas):  # b * (10 + 3)
         canvas_alpha = alpha_new * is_drawing_new + alpha_old * (1 - alpha_new)
         canvas_rgb = (color_new * alpha_new * is_drawing_new +
                       color_old * alpha_old * (1 - alpha_new)) / (canvas_alpha + 1e-8)
-
-        # # alpha = alpha_new + alpha_old * (1 - alpha_new)
-        # canvas[:, 3] = (alpha_new + alpha_old * (1 - alpha_new)).squeeze(1)
-
-        # # color = (color_new * alpha_new + color_old * alpha_old * (1 - alpha_new)) / alpha
-        # canvas[:, 0:3] = (color_new * alpha_new + color_old *
-        #                   alpha_old * (1 - alpha_new)) / (canvas[:, 3] + 1e-8)
-
-        # canvas[:, 0:3] = canvas[:, 0:3] * \
-        #     (1 - stroke[:, i, 0]) + color_stroke[:, i, 0:3]
-
-        # canvas[:, 3] += stroke[:, i, 0]
-
-        # canvas = canvas * erase_draw_stroke[:, i] + \
-        #     color_stroke[:, i] * is_drawing[:, i]
-        # canvas[:, 0:3] = canvas[:, 0:3] * (1 - stroke[:, i, 0] * is_drawing[:, i])
-        # canvas[:, 3] = canvas[:, 3] * (1 - stroke[:, i, 0]) + color_stroke[:, i, 3] * is_drawing[:, i]
-        # canvas = torch.clamp(canvas, 0, 1)
 
     canvas = torch.concat([canvas_rgb, canvas_alpha], 2).squeeze(1)
 
