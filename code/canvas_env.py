@@ -49,10 +49,6 @@ def decode(action, canvas):  # b * (10 + 3)
     # 10-12: color
     # 13: erase or draw
 
-    # Compute mean value of the pixels on the canvas
-    mean = canvas.mean(1).mean(1).mean(1)
-    print("Mean canvas value: ", mean)
-
     # Reshape from (batch_size * 13) to (batch_size, 13)
     action = action.view(-1, 10 + 4)
     # Decode the stroke into a 128x128 image
