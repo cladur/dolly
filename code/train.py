@@ -64,6 +64,12 @@ def train(agent: DDPG, env: CanvasEnv):
             action = action[random_index]
             action = action.reshape(-1, 14)
 
+            # straight alpha
+            G = G.astype(np.float32)
+            G[:, :, :3] /= G[:, :, 3:] + 1e-8
+            GT = GT.astype(np.float32)
+            GT[:, :, :3] /= GT[:, :, 3:] + 1e-8
+
             G = np.transpose(G, (1, 2, 0))
             GT = np.transpose(GT, (1, 2, 0))
 

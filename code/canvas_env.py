@@ -83,7 +83,7 @@ def decode(action, canvas):  # b * (10 + 3)
     is_drawing = is_drawing > 0.5
 
     # Convert canvas from straight alpha to premultiplied alpha
-    canvas[:, :3] = canvas[:, :3] * canvas[:, 3:4]
+    # canvas[:, :3] = canvas[:, :3] * canvas[:, 3:4]
 
     for i in range(5):
         # At the same time - 'erase' already drawn pixels and add in the new stroke
@@ -91,7 +91,7 @@ def decode(action, canvas):  # b * (10 + 3)
             color_stroke[:, i] * is_drawing[:, i]
 
     # Convert canvas from premultiplied alpha to straight alpha
-    canvas[:, :3] = canvas[:, :3] / (canvas[:, 3:4] + 1e-8)
+    # canvas[:, :3] = canvas[:, :3] / (canvas[:, 3:4] + 1e-8)
 
     return canvas
 
@@ -210,7 +210,11 @@ class CanvasEnv(gym.Env):
             img = aug(img)
         img = np.asarray(img)
 
-        return np.transpose(img, (2, 0, 1))
+        img = np.transpose(img, (2, 0, 1))
+
+        # premultiply alpha
+        img[:3] = img[:3] * img[3:4]
+        return img
 
     def observation(self):
         ob = []
