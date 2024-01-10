@@ -96,7 +96,8 @@ def decode(action, canvas):  # b * (10 + 3)
         canvas_rgb = (color_new * alpha_new * is_drawing_new +
                       color_old * alpha_old * (1 - alpha_new)) / (canvas_alpha + 1e-8)
 
-    canvas = torch.concat([canvas_rgb, canvas_alpha], 2).squeeze(1)
+    canvas = torch.concat([canvas_rgb, canvas_alpha], 2)
+    canvas = canvas.squeeze(1)
 
     return canvas
 
