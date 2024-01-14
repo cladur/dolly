@@ -130,9 +130,9 @@ class DDPG(object):
         gt = state[:, 4:8].float() / 255
         canvas0 = state[:, :4].float() / 255
         canvas1 = decode(action, canvas0)
-        canvas0_rgb = canvas0[:, :3] * canvas0[:, 3].unsqueeze(1)
-        canvas1_rgb = canvas1[:, :3] * canvas1[:, 3].unsqueeze(1)
-        gt_rgb = gt[:, :3] * gt[:, 3].unsqueeze(1)
+        # canvas0_rgb = canvas0[:, :3] * canvas0[:, 3].unsqueeze(1)
+        # canvas1_rgb = canvas1[:, :3] * canvas1[:, 3].unsqueeze(1)
+        # gt_rgb = gt[:, :3] * gt[:, 3].unsqueeze(1)
         # gan_reward = cal_reward(canvas1_rgb, gt_rgb) - \
         #     cal_reward(canvas0_rgb, gt_rgb)
         L2_reward = ((canvas0 - gt) ** 2).mean(1).mean(1).mean(1) - \

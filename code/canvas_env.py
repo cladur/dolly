@@ -213,9 +213,11 @@ class CanvasEnv(gym.Env):
         img = np.transpose(img, (2, 0, 1))
 
         # premultiply alpha
-        img_rgb = img[:3] * img[3].reshape(1, width, width)
+        img = img.astype(np.float32)
+        img_rgb = img[:3] * img[3].reshape(1, width, width) / 255.0
         img = np.concatenate(
             (img_rgb, img[3].reshape(1, width, width)), axis=0)
+        img = img.astype(np.uint8)
 
         return img
 
