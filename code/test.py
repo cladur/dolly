@@ -13,8 +13,18 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 width = 128
 
 T = torch.ones([1, 1, width, width], device=device)
-img = cv2.imread('data/food_transformed/0.png', cv2.IMREAD_UNCHANGED)
+img = cv2.imread('data/food_transformed/16.png', cv2.IMREAD_UNCHANGED)
 img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
+img = cv2.resize(img, (width, width))
+
+img = np.asarray(img)
+img = np.transpose(img, (2, 0, 1))
+
+# premultiply alpha
+img = img.astype(np.float32)
+img_rgb = img[:3] * img[3].reshape(1, width, width) / 255.0
+img = np.concatenate((img_rgb, img[3].reshape(1, width, width)), axis=0)
+img = img.astype(np.uint8)
 
 coord = torch.zeros([1, 2, width, width], device=device)
 for i in range(width):
@@ -106,11 +116,11 @@ actor.load_state_dict(torch.load('actor.pkl', map_location=device))
 actor = actor.to(device).eval()
 renderer = renderer.to(device).eval()
 
-img = cv2.resize(img, (width, width))
-img = img.reshape(1, width, width, 4)
+img = img.reshape(1, 4, width, width)
 # img = cv2.cvtColor(img, cv2.COLOR_GRAY2RGB)
 print(img.shape)
-img = np.transpose(img, (0, 3, 1, 2))
+# img = np.transpose(img, (0, 3, 1, 2))
+
 img = torch.tensor(img, dtype=torch.float, device=device) / 255.0
 
 os.system('mkdir output')

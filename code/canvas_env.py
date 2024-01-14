@@ -99,6 +99,7 @@ def decode(action, canvas):  # b * (10 + 3)
 aug = transforms.Compose(
     [transforms.ToPILImage(),
      transforms.RandomHorizontalFlip(),
+     transforms.RandomRotation(360, interpolation=Image.BILINEAR),
      ])
 
 img_train = []
@@ -139,7 +140,28 @@ class CanvasEnv(gym.Env):
                               dtype=torch.uint8).to(device)
 
     def load_data(self):
-        self.load_food()
+        self.load_pokemon()
+
+    def load_pokemon(self):
+        global train_num, test_num
+        imgs = []
+        for filename in os.listdir('./data/pokemon/'):
+            img = cv2.imread('./data/pokemon/' + filename,
+                             cv2.IMREAD_UNCHANGED)
+            img = cv2.resize(img, (width, width))
+            img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
+            imgs.append(img)
+            print('loaded ' + str(len(imgs)) + ' images')
+
+        img_num = len(imgs)
+
+        imgs = np.array(imgs)
+        np.random.shuffle(imgs)
+
+        train_num = int(img_num * 0.9)
+        test_num = img_num - train_num
+        img_train.extend(imgs[:train_num])
+        img_test.extend(imgs[train_num:])
 
     def load_food(self):
         global train_num, test_num
@@ -208,7 +230,6 @@ class CanvasEnv(gym.Env):
             img = img_train[id]
         if not test:
             img = aug(img)
-        img = np.asarray(img)
 
         img = np.transpose(img, (2, 0, 1))
 
