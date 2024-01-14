@@ -65,10 +65,13 @@ def train(agent: DDPG, env: CanvasEnv):
             action = action.reshape(-1, 14)
 
             # straight alpha
-            G = G.astype(np.float32)
-            G[:, :, :3] /= G[:, :, 3:] + 1e-8
-            GT = GT.astype(np.float32)
-            GT[:, :, :3] /= GT[:, :, 3:] + 1e-8
+            G_rgb = G[:3] / (G[3].reshape(1, 128, 128) + 1e-8)
+            G = np.concatenate(
+                (G_rgb, G[3].reshape(1, 128, 128)), axis=0)
+
+            GT_rgb = GT[:3] / (GT[3].reshape(1, 128, 128) + 1e-8)
+            GT = np.concatenate(
+                (GT_rgb, GT[3].reshape(1, 128, 128)), axis=0)
 
             G = np.transpose(G, (1, 2, 0))
             GT = np.transpose(GT, (1, 2, 0))

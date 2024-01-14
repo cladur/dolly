@@ -213,7 +213,10 @@ class CanvasEnv(gym.Env):
         img = np.transpose(img, (2, 0, 1))
 
         # premultiply alpha
-        img[:3] = img[:3] * img[3:4]
+        img_rgb = img[:3] * img[3].reshape(1, width, width)
+        img = np.concatenate(
+            (img_rgb, img[3].reshape(1, width, width)), axis=0)
+
         return img
 
     def observation(self):
