@@ -22,7 +22,7 @@ def train(agent: DDPG, env: CanvasEnv):
     observation = None
     noise_factor = 0.4
     episode_train_times = 10
-    validate_interval = 10
+    validate_interval = 50
     lr = (3e-4, 1e-3)
     warmup = 400
 
@@ -104,11 +104,11 @@ def train(agent: DDPG, env: CanvasEnv):
                 if episode > 0 and validate_interval > 0 and episode % validate_interval == 0:
                     agent.save_model('')
 
-                if step < warmup + 500 * max_step:
+                if step < warmup + 100 * max_step:
                     lr = (3e-4, 1e-3)
                     # Gradually decrease the noise factor
-                    noise_factor = 0.3 * \
-                        (1 - (step - warmup) / (1000 * max_step))
+                    noise_factor = 0.1 * \
+                        (1 - (step - warmup) / (100 * max_step))
                 elif step < warmup + 7000 * max_step:
                     lr = (3e-4, 1e-3)
                     noise_factor = 0.0
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     torch.backends.cudnn.benchmark = True
 
     batch_size = 96
-    max_step = 40
+    max_step = 20
 
     canvas_env = CanvasEnv(max_step=max_step, batch_size=batch_size)
     canvas_env.load_data()
