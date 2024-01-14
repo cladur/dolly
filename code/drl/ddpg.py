@@ -130,20 +130,20 @@ class DDPG(object):
         gt = state[:, 4:8].float() / 255
         canvas0 = state[:, :4].float() / 255
         canvas1 = decode(action, canvas0)
-        # canvas0_rgb = canvas0[:, :3] * canvas0[:, 3].unsqueeze(1)
-        # canvas1_rgb = canvas1[:, :3] * canvas1[:, 3].unsqueeze(1)
-        # gt_rgb = gt[:, :3] * gt[:, 3].unsqueeze(1)
-        # gan_reward = cal_reward(canvas1_rgb, gt_rgb) - \
-        #     cal_reward(canvas0_rgb, gt_rgb)
-        L2_reward = ((canvas0 - gt) ** 2).mean(1).mean(1).mean(1) - \
-            ((canvas1 - gt) ** 2).mean(1).mean(1).mean(1)
+        canvas0_rgb = canvas0[:, :3] * canvas0[:, 3].unsqueeze(1)
+        canvas1_rgb = canvas1[:, :3] * canvas1[:, 3].unsqueeze(1)
+        gt_rgb = gt[:, :3] * gt[:, 3].unsqueeze(1)
+        gan_reward = cal_reward(canvas1_rgb, gt_rgb) - \
+            cal_reward(canvas0_rgb, gt_rgb)
+        # L2_reward = ((canvas0 - gt) ** 2).mean(1).mean(1).mean(1) - \
+        #     ((canvas1 - gt) ** 2).mean(1).mean(1).mean(1)
         # L2_reward = get_dist(canvas0, gt) - get_dist(canvas1, gt)
         coord_ = coord.expand(state.shape[0], 2, 128, 128)
         merged_state = torch.cat(
             [canvas0, canvas1, gt, (T+1).float()/self.max_step, coord_], 1)
         if target:
             Q = self.critic_target.forward(merged_state)
-            return (Q + L2_reward), L2_reward
+            return (Q + gan_reward), gan_reward
         else:
             Q = self.critic.forward(merged_state)
 
@@ -151,7 +151,7 @@ class DDPG(object):
                 wandb.log({"expected reward": Q.mean().item()},
                           step=self.current_step)
 
-            return (Q + L2_reward), L2_reward
+            return (Q + gan_reward), gan_reward
 
     def observe(self, reward, state, done):
         """
@@ -191,7 +191,7 @@ class DDPG(object):
         state, action, reward, next_state, terminal = self.memory.sample(
             self.batch_size, device)
 
-        # self.update_gan(next_state)
+        self.update_gan(next_state)
 
         with torch.no_grad():
             next_action = self.play(next_state, True)
