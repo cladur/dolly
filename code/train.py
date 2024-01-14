@@ -66,7 +66,7 @@ def train(agent: DDPG, env: CanvasEnv):
 
             # straight alpha
             G = G.astype(np.float32)
-            G_rgb = G[:3] / (G[3].reshape(1, 128, 128) + 1e-8)
+            G_rgb = G[:3] / (G[3].reshape(1, 128, 128) + 1e-8) * 255.0
             G = np.concatenate(
                 (G_rgb, G[3].reshape(1, 128, 128)), axis=0)
             G = G.astype(np.uint8)
