@@ -4,7 +4,9 @@ wandb
 .DS_Store
 __pycache__
 
-data
 output
 
 actor.pkl
+
+data/*
+!data/FOOD_PNG.zip
