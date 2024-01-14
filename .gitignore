@@ -10,3 +10,4 @@ actor.pkl
 
 data/*
 !data/FOOD_PNG.zip
+!data/pokemon.zip
