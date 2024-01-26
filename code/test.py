@@ -13,7 +13,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 width = 128
 
 T = torch.ones([1, 1, width, width], device=device)
-img = cv2.imread('data/pokemon/1.png', cv2.IMREAD_UNCHANGED)
+img = cv2.imread('renders/Total0000.png', cv2.IMREAD_UNCHANGED)
 img = cv2.cvtColor(img, cv2.COLOR_BGRA2RGBA)
 img = cv2.resize(img, (width, width))
 
@@ -125,7 +125,7 @@ img = torch.tensor(img, dtype=torch.float, device=device) / 255.0
 
 os.system('mkdir output')
 
-max_step = 20
+max_step = 300
 imgid = 0
 
 action_list = []
@@ -140,7 +140,7 @@ with torch.no_grad():
         print(action)
         print('canvas step {}, L2Loss = {}'.format(
             i, ((canvas - img) ** 2).mean()))
-        for j in range(5):
-            save_img(res[j], imgid)
-            imgid += 1
+        # for j in range(5):
+        #     save_img(res[j], imgid)
+        #     imgid += 1
     save_img(img, imgid)
