@@ -79,8 +79,8 @@ def decode(action, canvas):  # b * (10 + 3)
     # Reshape from (batch_size, 4, 128, 128) to (batch_size, 5, 4, 128, 128)
     color_stroke = color_stroke.view(-1, 5, 4, 128, 128)
 
-    is_drawing = action[:, 13].view(-1, 5, 1, 1, 1)
-    is_drawing = is_drawing > 0.5
+    # is_drawing = action[:, 13].view(-1, 5, 1, 1, 1)
+    # is_drawing = is_drawing > 0.5
 
     # Convert canvas from straight alpha to premultiplied alpha
     # canvas[:, :3] = canvas[:, :3] * canvas[:, 3:4]
@@ -88,7 +88,7 @@ def decode(action, canvas):  # b * (10 + 3)
     for i in range(5):
         # At the same time - 'erase' already drawn pixels and add in the new stroke
         canvas = canvas * (1 - stroke[:, i]) + \
-            color_stroke[:, i] * is_drawing[:, i]
+            color_stroke[:, i]
 
     # Convert canvas from premultiplied alpha to straight alpha
     # canvas[:, :3] = canvas[:, :3] / (canvas[:, 3:4] + 1e-8)
@@ -269,7 +269,7 @@ class CanvasEnv(gym.Env):
         return ob, reward, np.array([done] * self.batch_size), info
 
     def get_dist(self):
-        return get_dist(self.canvas / 255, self.gt / 255)
+        return get_dist(self.canvas.float() / 255, self.gt.float() / 255)
 
     def close(self):
         cv2.destroyAllWindows()

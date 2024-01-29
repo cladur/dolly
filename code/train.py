@@ -20,9 +20,9 @@ def to_numpy(var):
 def train(agent: DDPG, env: CanvasEnv):
     step = episode = episode_steps = 0
     observation = None
-    noise_factor = 0.4
+    noise_factor = 0.3
     episode_train_times = 10
-    validate_interval = 50
+    validate_interval = 10
     lr = (3e-4, 1e-3)
     warmup = 400
 
@@ -104,12 +104,7 @@ def train(agent: DDPG, env: CanvasEnv):
                 if episode > 0 and validate_interval > 0 and episode % validate_interval == 0:
                     agent.save_model('')
 
-                if step < warmup + 100 * max_step:
-                    lr = (3e-4, 1e-3)
-                    # Gradually decrease the noise factor
-                    noise_factor = 0.1 * \
-                        (1 - (step - warmup) / (100 * max_step))
-                elif step < warmup + 7000 * max_step:
+                if step < warmup + 7000 * max_step:
                     lr = (3e-4, 1e-3)
                     noise_factor = 0.0
                 elif step < warmup + 14000 * max_step:
