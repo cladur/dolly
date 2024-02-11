@@ -9,6 +9,9 @@ from drl.actor import *
 from renderer.renderer import *
 from renderer.stroke_gen import *
 
+renders_dir = 'renders/cut'
+output_dir = 'output/cut'
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 width = 128
 
@@ -121,42 +124,32 @@ def crop_image(img):
 
     # Crop the image using cv2
     img = img[y:y+h, x:x+w]
+    return img
 
-    # # Get the contours
-    # contours = cv2.findContours(
-    #     img[:, :, 3], cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-    # contours = contours[0] if len(contours) == 2 else contours[1]
+def uncrop_image(img, crop_info):
+    y, x, w = crop_info
+    # Scale image contents back down
+    img = cv2.resize(img, (int(128 * w), int(128 * w)))
 
-    # rect = cv2.minAreaRect(contours[0])
+    # Crop the image if y or x are negative
+    if y < 0:
+        img = img[-int(128 * y):, :]
+        y = 0
+    if x < 0:
+        img = img[:, -int(128 * x):]
+        x = 0
 
-    # # Extract rotation, position, and size
-    # rotation_angle = rect[2]
-    # center = rect[0]
-    # size = rect[1]
+    # Add padding to the left based on x and to the top based on y
+    img = cv2.copyMakeBorder(
+        img, int(128 * y), 0, int(128 * x), 0, cv2.BORDER_CONSTANT, value=(0, 0, 0, 0))
 
-    # # Enforce square bounding box
-    # side_length = max(size)
-    # rect = (center, (side_length, side_length), rotation_angle)
+    # Crop the image to 128x128
+    img = img[:128, :128]
 
-    # pts = cv2.boxPoints(rect).astype(np.int0)
-
-    # # Print size and rotation of bounding box
-    # print('width: {}, height: {}, angle: {}'.format(
-    #     rect[1][0], rect[1][1], rect[2]))
-
-    # # Draw contours
-    # cv2.drawContours(img, [pts], -1, (0, 0, 255, 255), 32)
-
-    # Rotate and crop
-    # angle = rect[2]
-    # if angle < -45:
-    #     angle += 90
-    # h, w = img.shape[:2]
-    # center = (w // 2, h // 2)
-    # M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    # img = cv2.warpAffine(
-    #     img, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
-
+    # Add padding to the right and bottom to make the image 128x128
+    img = cv2.copyMakeBorder(
+        img, 0, max(0, 128 - img.shape[0]), 0, max(0, 128 - img.shape[1]), cv2.BORDER_CONSTANT, value=(0, 0, 0, 0))
+    
     return img
 
 
@@ -196,24 +189,27 @@ def save_img(res, imgid):
 
     # swap bgra to rgba
     output = output[:, :, [2, 1, 0, 3]]
-    cv2.imwrite('output/{}.png'.format(imgid), output)
+    cv2.imwrite(output_dir + '/{}.png'.format(imgid), output)
 
 
 if __name__ == '__main__':
     torch.no_grad()
 
-    if not os.path.exists('output'):
-        os.makedirs('output')
-
-    max_step = 200
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    
+    # cv2 empty rgba image
+    total_img = np.zeros((width, width, 4), dtype=np.uint8)
+    
+    max_step = 20
     num = 0
-    for input_image in sorted(os.listdir('renders')):
+    for input_image in sorted(os.listdir(renders_dir)):
         if not input_image.endswith('.png'):
             continue
         if input_image.startswith('Total'):
             continue
         print(input_image)
-        img = load_image('renders/' + input_image)
+        img = load_image(renders_dir + '/' + input_image)
         img = crop_image(img)
         img = transform_image(img)
 
@@ -261,6 +257,23 @@ if __name__ == '__main__':
                 stroke[6] = stroke[6] * crop_info[2]
                 stroke[7] = stroke[7] * crop_info[2]
 
+
+        img = output_dir + '/drawing_{}.png'.format(num)
+        img = cv2.imread(img, cv2.IMREAD_UNCHANGED)
+        img = uncrop_image(img, crop_info)
+
+        # https://stackoverflow.com/a/59211216
+        # overlay the drawing on the total image
+        # normalize alpha channels from 0-255 to 0-1
+        alpha_background = total_img[:,:,3] / 255.0
+        alpha_foreground = img[:,:,3] / 255.0
+        # set adjusted colors
+        for color in range(0, 3):
+            total_img[:,:,color] = alpha_foreground * img[:,:,color] + \
+                alpha_background * total_img[:,:,color] * (1 - alpha_foreground)
+        # set adjusted alpha and denormalize back to 0-255
+        total_img[:,:,3] = (1 - (1 - alpha_foreground) * (1 - alpha_background)) * 255
+
         # Save actions as txt
         txt = ''
         for i, action in enumerate(all_actions):
@@ -271,7 +284,10 @@ if __name__ == '__main__':
                 line += '\n'
             txt += line
 
-        with open('output/{}.txt'.format(num), 'w') as f:
+        with open(output_dir + '/{}.txt'.format(num), 'w') as f:
             f.write(txt)
 
         num += 1
+    
+    # save total_img
+    cv2.imwrite(output_dir + '/Total.png', total_img)

@@ -5,6 +5,7 @@ wandb
 __pycache__
 
 output
+renders
 
 actor.pkl
 
